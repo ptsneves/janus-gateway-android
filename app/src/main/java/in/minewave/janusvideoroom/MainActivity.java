@@ -137,25 +137,42 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
     // interface JanusRTCInterface
     @Override
     public void onPublisherJoined(final BigInteger handleId) {
-        videoCapturer = createVideoCapturer();
-        peerConnectionClient.createPeerConnection(rootEglBase.getEglBaseContext(), localRender, videoCapturer, handleId);
-        peerConnectionClient.createOffer(handleId);
+        MainActivity.this.runOnUiThread(new Runnable() {
+            public void run() {
+                videoCapturer = createVideoCapturer();
+                if (peerConnectionClient == null)
+                    Log.e("sadsdsd", "Shitsz");
+                peerConnectionClient.createPeerConnection(rootEglBase.getEglBaseContext(), localRender, videoCapturer, handleId);
+
+                peerConnectionClient.createOffer(handleId);
+            }
+        });
+
     }
 
     @Override
-    public void onPublisherRemoteJsep(BigInteger handleId, JSONObject jsep) {
-        SessionDescription.Type type = SessionDescription.Type.fromCanonicalForm(jsep.optString("type"));
-        String sdp = jsep.optString("sdp");
-        SessionDescription sessionDescription = new SessionDescription(type, sdp);
-        peerConnectionClient.setRemoteDescription(handleId, sessionDescription);
+    public void onPublisherRemoteJsep(final BigInteger handleId, final JSONObject jsep) {
+        MainActivity.this.runOnUiThread(new Runnable() {
+            public void run() {
+                SessionDescription.Type type = SessionDescription.Type.fromCanonicalForm(jsep.optString("type"));
+                String sdp = jsep.optString("sdp");
+                SessionDescription sessionDescription = new SessionDescription(type, sdp);
+                peerConnectionClient.setRemoteDescription(handleId, sessionDescription);
+            }
+        });
+
     }
 
     @Override
-    public void subscriberHandleRemoteJsep(BigInteger handleId, JSONObject jsep) {
-        SessionDescription.Type type = SessionDescription.Type.fromCanonicalForm(jsep.optString("type"));
-        String sdp = jsep.optString("sdp");
-        SessionDescription sessionDescription = new SessionDescription(type, sdp);
-        peerConnectionClient.subscriberHandleRemoteJsep(handleId, sessionDescription);
+    public void subscriberHandleRemoteJsep(final BigInteger handleId, final JSONObject jsep) {
+        MainActivity.this.runOnUiThread(new Runnable() {
+            public void run() {
+                SessionDescription.Type type = SessionDescription.Type.fromCanonicalForm(jsep.optString("type"));
+                String sdp = jsep.optString("sdp");
+                SessionDescription sessionDescription = new SessionDescription(type, sdp);
+                peerConnectionClient.subscriberHandleRemoteJsep(handleId, sessionDescription);
+            }
+        });
     }
 
     @Override
@@ -165,25 +182,39 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
 
     // interface PeerConnectionClient.PeerConnectionEvents
     @Override
-    public void onLocalDescription(SessionDescription sdp, BigInteger handleId) {
-        Log.e(TAG, sdp.type.toString());
-        mWebSocketChannel.publisherCreateOffer(handleId, sdp);
+    public void onLocalDescription(final SessionDescription sdp, final BigInteger handleId) {
+        MainActivity.this.runOnUiThread(new Runnable() {
+            public void run() {
+                Log.e(TAG, sdp.type.toString());
+                mWebSocketChannel.publisherCreateOffer(handleId, sdp);
+            }
+        });
+
     }
 
     @Override
-    public void onRemoteDescription(SessionDescription sdp, BigInteger handleId) {
-        Log.e(TAG, sdp.type.toString());
-        mWebSocketChannel.subscriberCreateAnswer(handleId, sdp);
+    public void onRemoteDescription(final SessionDescription sdp, final BigInteger handleId) {
+        MainActivity.this.runOnUiThread(new Runnable() {
+            public void run() {
+                Log.e(TAG, sdp.type.toString());
+                mWebSocketChannel.subscriberCreateAnswer(handleId, sdp);
+            }
+        });
     }
 
     @Override
-    public void onIceCandidate(IceCandidate candidate, BigInteger handleId) {
-        Log.e(TAG, "=========onIceCandidate========");
-        if (candidate != null) {
-            mWebSocketChannel.trickleCandidate(handleId, candidate);
-        } else {
-            mWebSocketChannel.trickleCandidateComplete(handleId);
-        }
+    public void onIceCandidate(final IceCandidate candidate, final BigInteger handleId) {
+        MainActivity.this.runOnUiThread(new Runnable() {
+            public void run() {
+                Log.e(TAG, "=========onIceCandidate========");
+                if (candidate != null) {
+                    mWebSocketChannel.trickleCandidate(handleId, candidate);
+                } else {
+                    mWebSocketChannel.trickleCandidateComplete(handleId);
+                }
+            }
+        });
+
     }
 
     @Override
