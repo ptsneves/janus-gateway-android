@@ -108,7 +108,7 @@ public class WebSocketChannel {
                 }
                 transactions.remove(transaction);
             } else if (janus.equals("ack")) {
-                Log.e(TAG, "Just an ack");
+                Log.d(TAG, "Just an ack");
             } else {
                 JanusHandle handle = handles.get(new BigInteger(jo.optString("sender")));
                 if (handle == null) {

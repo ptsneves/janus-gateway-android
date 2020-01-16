@@ -38,13 +38,13 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        rootView = (LinearLayout) findViewById(R.id.activity_main);
+        rootView = findViewById(R.id.activity_main);
         mWebSocketChannel = new WebSocketChannel();
         mWebSocketChannel.initConnection(getString(R.string.janus_websocket_uri));
         mWebSocketChannel.setDelegate(this);
 
         createLocalRender();
-        remoteRender = (SurfaceViewRenderer) findViewById(R.id.remote_video_view);
+        remoteRender = findViewById(R.id.remote_video_view);
         remoteRender.init(rootEglBase.getEglBaseContext(), null);
         peerConnectionParameters  = new PeerConnectionParameters(false, 360, 480, 20, "H264", true, 0, "opus", false, false, false, false, false);
         peerConnectionClient = PeerConnectionClient.getInstance();
@@ -58,18 +58,10 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
     }
 
     private void createLocalRender() {
-        localRender = (SurfaceViewRenderer) findViewById(R.id.local_video_view);
+        localRender = findViewById(R.id.local_video_view);
         rootEglBase = EglBase.create();
         localRender.init(rootEglBase.getEglBaseContext(), null);
         localRender.setEnableHardwareScaler(true);
-    }
-
-    private boolean useCamera2() {
-        return Camera2Enumerator.isSupported(this);
-    }
-
-    private boolean captureToTexture() {
-        return true;
     }
 
     private VideoCapturer createCameraCapturer(CameraEnumerator enumerator) {
@@ -105,13 +97,12 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
     }
 
     private VideoCapturer createVideoCapturer() {
-        VideoCapturer videoCapturer = null;
-        if (useCamera2()) {
+        if (Camera2Enumerator.isSupported(this)) {
             Log.d(TAG, "Creating capturer using camera2 API.");
             videoCapturer = createCameraCapturer(new Camera2Enumerator(this));
         } else {
             Log.d(TAG, "Creating capturer using camera1 API.");
-            videoCapturer = createCameraCapturer(new Camera1Enumerator(captureToTexture()));
+            videoCapturer = createCameraCapturer(new Camera1Enumerator(true));
         }
         if (videoCapturer == null) {
             Log.e(TAG, "Failed to open camera");
@@ -120,17 +111,12 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
         return videoCapturer;
     }
 
-
-    private void offerPeerConnection(BigInteger handleId) {
-        videoCapturer = createVideoCapturer();
-        peerConnectionClient.createPeerConnection(rootEglBase.getEglBaseContext(), localRender, videoCapturer, handleId);
-        peerConnectionClient.createOffer(handleId);
-    }
-
     // interface JanusRTCInterface
     @Override
     public void onPublisherJoined(final BigInteger handleId) {
-        offerPeerConnection(handleId);
+        videoCapturer = createVideoCapturer();
+        peerConnectionClient.createPeerConnection(rootEglBase.getEglBaseContext(), localRender, videoCapturer, handleId);
+        peerConnectionClient.createOffer(handleId);
     }
 
     @Override
