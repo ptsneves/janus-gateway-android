@@ -26,6 +26,8 @@ import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnection.IceConnectionState;
 import org.webrtc.PeerConnectionFactory;
+import org.webrtc.RTCStatsCollectorCallback;
+import org.webrtc.RTCStatsReport;
 import org.webrtc.RtpReceiver;
 import org.webrtc.RtpSender;
 import org.webrtc.SdpObserver;
@@ -170,7 +172,7 @@ public class PeerConnectionClient {
     /**
      * Callback fired once peer connection statistics is ready.
      */
-    void onPeerConnectionStatsReady(final StatsReport[] reports);
+    void onPeerConnectionStatsReady(final RTCStatsReport reports);
 
     /**
      * Callback fired once peer connection error happened.
@@ -466,17 +468,17 @@ public class PeerConnectionClient {
     return videoWidth * videoHeight >= 1280 * 720;
   }
 
+  class PeerConnectionStats implements RTCStatsCollectorCallback
+  {
+    @Override
+    public void onStatsDelivered(RTCStatsReport report) {
+      events.onPeerConnectionStatsReady(report);
+    }
+  }
+
   private void getStats(final BigInteger handleId) {
     PeerConnection peerConnection = peerConnectionMap.get(handleId).peerConnection;
-    boolean success = peerConnection.getStats(new StatsObserver() {
-      @Override
-      public void onComplete(final StatsReport[] reports) {
-        events.onPeerConnectionStatsReady(reports);
-      }
-    }, null);
-    if (!success) {
-      Log.e(TAG, "getStats() returns false!");
-    }
+    peerConnection.getStats(new PeerConnectionStats());
   }
 
   public void enableStatsEvents(boolean enable, int periodMs, final BigInteger handleId) {

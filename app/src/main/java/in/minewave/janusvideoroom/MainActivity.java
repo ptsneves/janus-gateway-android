@@ -11,8 +11,8 @@ import org.webrtc.Camera2Enumerator;
 import org.webrtc.CameraEnumerator;
 import org.webrtc.EglBase;
 import org.webrtc.IceCandidate;
+import org.webrtc.RTCStatsReport;
 import org.webrtc.SessionDescription;
-import org.webrtc.StatsReport;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoCapturer;
 import org.webrtc.VideoRenderer;
@@ -198,7 +198,7 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
     }
 
     @Override
-    public void onPeerConnectionStatsReady(StatsReport[] reports) {
+    public void onPeerConnectionStatsReady(RTCStatsReport reports) {
 
     }
 
