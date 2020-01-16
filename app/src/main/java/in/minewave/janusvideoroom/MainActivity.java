@@ -43,11 +43,9 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
         alertDialog.setTitle("Alert");
         alertDialog.setMessage(reason_to_finish);
         alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.dismiss();
-                        finish();
-                    }
+                (dialog, which) -> {
+                    dialog.dismiss();
+                    finish();
                 });
         alertDialog.show();
     }
