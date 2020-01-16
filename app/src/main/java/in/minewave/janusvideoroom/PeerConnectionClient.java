@@ -373,15 +373,17 @@ public class PeerConnectionClient {
 
   private PeerConnection createPeerConnection(BigInteger handleId, boolean type) {
     Log.d(TAG, "Create peer connection.");
-    PeerConnection.IceServer iceServer = new PeerConnection.IceServer("turn:xxx.xxx.xx.xx:xxx", "ling", "ling1234");
+    PeerConnection.IceServer iceServer = new PeerConnection.IceServer("stun:stun.l.google.com:19302");
     List<PeerConnection.IceServer> iceServers = new ArrayList<>();
     iceServers.add(iceServer);
     PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
-    rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.RELAY;
+    rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
 
     PCObserver pcObserver = new PCObserver();
     SDPObserver sdpObserver = new SDPObserver();
     PeerConnection peerConnection = factory.createPeerConnection(rtcConfig, pcConstraints, pcObserver);
+    if (peerConnection == null)
+      throw new NullPointerException("peer connection is null");
 
     JanusConnection janusConnection = new JanusConnection();
     janusConnection.handleId = handleId;
