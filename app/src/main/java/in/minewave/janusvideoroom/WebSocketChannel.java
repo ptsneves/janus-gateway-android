@@ -4,32 +4,35 @@ import android.os.Handler;
 import android.text.TextUtils;
 import android.util.Log;
 
+import org.java_websocket.drafts.Draft;
+import org.java_websocket.drafts.Draft_6455;
+import org.java_websocket.extensions.IExtension;
+import org.java_websocket.handshake.ServerHandshake;
+import org.java_websocket.protocols.IProtocol;
+import org.java_websocket.protocols.Protocol;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.webrtc.IceCandidate;
 import org.webrtc.SessionDescription;
 
-import java.io.IOException;
+import java.io.InvalidObjectException;
 import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-import okhttp3.Interceptor;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.WebSocket;
-import okhttp3.WebSocketListener;
-import okhttp3.logging.HttpLoggingInterceptor;
-import okio.ByteString;
-
+import org.java_websocket.client.WebSocketClient;
 
 public class WebSocketChannel {
     private static final String TAG = "WebSocketChannel";
 
-    private WebSocket mWebSocket;
+    private WebSocketTransport mWebSocket;
     private ConcurrentHashMap<String, JanusTransaction> transactions = new ConcurrentHashMap<>();
     private ConcurrentHashMap<BigInteger, JanusHandle> handles = new ConcurrentHashMap<>();
     private ConcurrentHashMap<BigInteger, JanusHandle> feeds = new ConcurrentHashMap<>();
@@ -41,51 +44,47 @@ public class WebSocketChannel {
         mHandler = new Handler();
     }
 
-    public void initConnection(String url) {
-        OkHttpClient httpClient = new OkHttpClient.Builder()
-                .addNetworkInterceptor(new HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY))
-                .addInterceptor(new Interceptor() {
-                    @Override
-                    public Response intercept(Interceptor.Chain chain) throws IOException {
-                        Request.Builder builder = chain.request().newBuilder();
-                        builder.addHeader("Sec-WebSocket-Protocol", "janus-protocol");
-                        return chain.proceed(builder.build());
-                    }
-                }).connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(10, TimeUnit.SECONDS)
-                .build();
-        Request request = new Request.Builder().url(url).build();
-        mWebSocket = httpClient.newWebSocket(request, new WebSocketListener() {
-            @Override
-            public void onOpen(WebSocket webSocket, Response response) {
-                Log.e(TAG, "onOpen");
-                createSession();
-            }
+    class WebSocketTransport extends WebSocketClient {
 
-            @Override
-            public void onMessage(WebSocket webSocket, String text) {
-                Log.e(TAG, "onMessage");
-                WebSocketChannel.this.onMessage(text);
-            }
+        public WebSocketTransport(URI serverUri, Draft protocolDraft, Map<String, String> httpHeaders) {
+            super(serverUri, protocolDraft, httpHeaders);
+        }
 
-            @Override
-            public void onMessage(WebSocket webSocket, ByteString bytes) {
-            }
+        @Override
+        public void onOpen(ServerHandshake handshakedata) {
+            Log.d(TAG, "onOpen");
+            createSession();
+        }
 
-            @Override
-            public void onClosing(WebSocket webSocket, int code, String reason) {
-                Log.e(TAG, "onClosing");
-            }
+        @Override
+        public void onMessage(String message) {
+            Log.i(TAG, "onMessage");
+            WebSocketChannel.this.onMessage(message);
+        }
 
-            @Override
-            public void onClosed(WebSocket webSocket, int code, String reason) {
-            }
+        @Override
+        public void onClose(int code, String reason, boolean remote) {
+            Log.e(TAG, "Connection closed by " + ( remote ? "remote peer" : "us" ) + " Code: " + code + " Reason: " + reason );
+        }
 
-            @Override
-            public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-                Log.e(TAG, "onFailure" + t.toString());
-            }
-        });
+        @Override
+        public void onError(Exception ex) {
+            Log.e(TAG, "onFailure " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+
+    public void initConnection(String url) throws URISyntaxException, InterruptedException, InvalidObjectException {
+        HashMap<String, String> httpHeaders = new HashMap<>();
+        Draft_6455 janus_draft = new Draft_6455(Collections.<IExtension>emptyList(),
+                Collections.<IProtocol>singletonList(new Protocol("janus-protocol")));
+
+        mWebSocket = new WebSocketTransport(
+                new URI(url), janus_draft, httpHeaders);
+
+        if (!mWebSocket.connectBlocking(10, TimeUnit.SECONDS))
+            throw new InvalidObjectException("Could not connect to janus");
+
     }
 
     private void onMessage(String message) {
