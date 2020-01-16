@@ -1,6 +1,9 @@
 package in.minewave.janusvideoroom;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+
+import android.content.DialogInterface;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.LinearLayout;
@@ -33,6 +36,21 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
     private EglBase rootEglBase;
     private WebSocketChannel mWebSocketChannel;
     LinearLayout rootView;
+
+
+    private void alertBox(String reason_to_finish) {
+        AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
+        alertDialog.setTitle("Alert");
+        alertDialog.setMessage(reason_to_finish);
+        alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                        finish();
+                    }
+                });
+        alertDialog.show();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
