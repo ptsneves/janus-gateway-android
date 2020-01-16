@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">JanusVideoRoom</string>
+    <string name="janus_websocket_uri">ws://192.168.1.106:8188</string>
 </resources>
