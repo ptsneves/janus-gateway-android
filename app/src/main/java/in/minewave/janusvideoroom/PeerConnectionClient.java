@@ -216,13 +216,7 @@ public class PeerConnectionClient {
     enableAudio = true;
     localAudioTrack = null;
     statsTimer = new Timer();
-
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        createPeerConnectionFactoryInternal(context);
-      }
-    });
+    createPeerConnectionFactoryInternal(context);
   }
 
   public void createPeerConnection(final EglBase.Context renderEGLContext,
@@ -234,36 +228,20 @@ public class PeerConnectionClient {
     }
     this.localRender = localRender;
     this.videoCapturer = videoCapturer;
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        try {
-          createMediaConstraintsInternal();
-          createPeerConnectionInternal(renderEGLContext, handleId);
-        } catch (Exception e) {
-          reportError("Failed to create peer connection: " + e.getMessage());
-          throw e;
-        }
-      }
-    });
+
+    try {
+      createMediaConstraintsInternal();
+      createPeerConnectionInternal(renderEGLContext, handleId);
+    } catch (Exception e) {
+      reportError("Failed to create peer connection: " + e.getMessage());
+      throw e;
+    }
+
   }
 
-  public void close() {
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        closeInternal();
-      }
-    });
-  }
 
   private void createPeerConnectionFactoryInternal(Context context) {
     PeerConnectionFactory.initializeInternalTracer();
-    if (peerConnectionParameters.tracing) {
-      PeerConnectionFactory.startInternalTracingCapture(
-          Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator
-          + "webrtc-trace.txt");
-    }
     Log.d(TAG,
         "Create peer connection factory. Use video: true");
     isError = false;
@@ -464,144 +442,42 @@ public class PeerConnectionClient {
     PeerConnectionFactory.shutdownInternalTracer();
   }
 
-  public boolean isHDVideo() {
-    return videoWidth * videoHeight >= 1280 * 720;
-  }
-
-  class PeerConnectionStats implements RTCStatsCollectorCallback
-  {
-    @Override
-    public void onStatsDelivered(RTCStatsReport report) {
-      events.onPeerConnectionStatsReady(report);
-    }
-  }
-
-  private void getStats(final BigInteger handleId) {
-    PeerConnection peerConnection = peerConnectionMap.get(handleId).peerConnection;
-    peerConnection.getStats(new PeerConnectionStats());
-  }
-
-  public void enableStatsEvents(boolean enable, int periodMs, final BigInteger handleId) {
-    if (enable) {
-      try {
-        statsTimer.schedule(new TimerTask() {
-          @Override
-          public void run() {
-            executor.execute(new Runnable() {
-              @Override
-              public void run() {
-                getStats(handleId);
-              }
-            });
-          }
-        }, 0, periodMs);
-      } catch (Exception e) {
-        Log.e(TAG, "Can not schedule statistics timer", e);
-      }
-    } else {
-      statsTimer.cancel();
-    }
-  }
-
-  public void setAudioEnabled(final boolean enable) {
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        enableAudio = enable;
-        if (localAudioTrack != null) {
-          localAudioTrack.setEnabled(enableAudio);
-        }
-      }
-    });
-  }
-
-  public void setVideoEnabled(final boolean enable) {
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        renderVideo = enable;
-        if (localVideoTrack != null) {
-          localVideoTrack.setEnabled(renderVideo);
-        }
-        if (remoteVideoTrack != null) {
-          remoteVideoTrack.setEnabled(renderVideo);
-        }
-      }
-    });
-  }
-
   public void createOffer(final BigInteger handleId) {
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        JanusConnection connection = peerConnectionMap.get(handleId);
-        PeerConnection peerConnection = connection.peerConnection;
-        if (peerConnection != null && !isError) {
-          Log.d(TAG, "PC Create OFFER");
-          peerConnection.createOffer(connection.sdpObserver, sdpMediaConstraints);
-        }
+      JanusConnection connection = peerConnectionMap.get(handleId);
+      PeerConnection peerConnection = connection.peerConnection;
+      if (peerConnection != null && !isError) {
+        Log.d(TAG, "PC Create OFFER");
+        peerConnection.createOffer(connection.sdpObserver, sdpMediaConstraints);
       }
-    });
   }
 
   public void setRemoteDescription(final BigInteger handleId, final SessionDescription sdp) {
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        PeerConnection peerConnection = peerConnectionMap.get(handleId).peerConnection;
-        SDPObserver sdpObserver = peerConnectionMap.get(handleId).sdpObserver;
-        if (peerConnection == null || isError) {
-          return;
-        }
-        peerConnection.setRemoteDescription(sdpObserver, sdp);
-      }
-    });
+    PeerConnection peerConnection = peerConnectionMap.get(handleId).peerConnection;
+    SDPObserver sdpObserver = peerConnectionMap.get(handleId).sdpObserver;
+    if (peerConnection == null || isError) {
+      return;
+    }
+    peerConnection.setRemoteDescription(sdpObserver, sdp);
   }
 
   public void subscriberHandleRemoteJsep(final BigInteger handleId, final SessionDescription sdp) {
-      executor.execute(new Runnable() {
-        @Override
-        public void run() {
-          PeerConnection peerConnection = createPeerConnection(handleId, false);
-          SDPObserver sdpObserver = peerConnectionMap.get(handleId).sdpObserver;
-          if (peerConnection == null || isError) {
-            return;
-          }
-          JanusConnection connection = peerConnectionMap.get(handleId);
-          peerConnection.setRemoteDescription(sdpObserver, sdp);
-          Log.d(TAG, "PC create ANSWER");
-          peerConnection.createAnswer(connection.sdpObserver, sdpMediaConstraints);
-        }
-      });
-  }
-
-  public void stopVideoSource() {
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        if (videoCapturer != null && !videoCapturerStopped) {
-          Log.d(TAG, "Stop video source.");
-          try {
-            videoCapturer.stopCapture();
-          } catch (InterruptedException e) {
-          }
-          videoCapturerStopped = true;
-        }
+      PeerConnection peerConnection = createPeerConnection(handleId, false);
+      SDPObserver sdpObserver = peerConnectionMap.get(handleId).sdpObserver;
+      if (peerConnection == null || isError) {
+        return;
       }
-    });
+      JanusConnection connection = peerConnectionMap.get(handleId);
+      peerConnection.setRemoteDescription(sdpObserver, sdp);
+      Log.d(TAG, "PC create ANSWER");
+      peerConnection.createAnswer(connection.sdpObserver, sdpMediaConstraints);
   }
 
   public void startVideoSource() {
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        if (videoCapturer != null && videoCapturerStopped) {
-          Log.d(TAG, "Restart video source.");
-          videoCapturer.startCapture(videoWidth, videoHeight, videoFps);
-          videoCapturerStopped = false;
-        }
+      if (videoCapturer != null && videoCapturerStopped) {
+        Log.d(TAG, "Restart video source.");
+        videoCapturer.startCapture(videoWidth, videoHeight, videoFps);
+        videoCapturerStopped = false;
       }
-    });
   }
 
   private void reportError(final String errorMessage) {
@@ -645,44 +521,6 @@ public class PeerConnectionClient {
         }
       }
     }
-  }
-
-  private void switchCameraInternal() {
-    if (videoCapturer instanceof CameraVideoCapturer) {
-      Log.d(TAG, "Switch camera");
-      CameraVideoCapturer cameraVideoCapturer = (CameraVideoCapturer) videoCapturer;
-      cameraVideoCapturer.switchCamera(null);
-    } else {
-      Log.d(TAG, "Will not switch camera, video caputurer is not a camera");
-    }
-  }
-
-  public void switchCamera() {
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        switchCameraInternal();
-      }
-    });
-  }
-
-  public void changeCaptureFormat(final int width, final int height, final int framerate) {
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        changeCaptureFormatInternal(width, height, framerate);
-      }
-    });
-  }
-
-  private void changeCaptureFormatInternal(int width, int height, int framerate) {
-    if (isError || videoCapturer == null) {
-      Log.e(TAG,
-          "Failed to change capture format. Video: true. Error : " + isError);
-      return;
-    }
-    Log.d(TAG, "changeCaptureFormat: " + width + "x" + height + "@" + framerate);
-    videoSource.adaptOutputFormat(width, height, framerate);
   }
 
   // Implementation detail: observe ICE & stream changes and react accordingly.
