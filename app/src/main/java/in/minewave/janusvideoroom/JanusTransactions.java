@@ -1,9 +1,7 @@
 package in.minewave.janusvideoroom;
 
 import android.util.Log;
-
 import org.json.JSONObject;
-
 import java.util.concurrent.ConcurrentHashMap;
 
 interface TransactionCallbackSuccess {
@@ -15,36 +13,43 @@ interface TransactionCallbackError {
 }
 
 
-public class JanusTransaction {
+public class JanusTransactions {
+    private ConcurrentHashMap<String, JanusTransaction> transactions = new ConcurrentHashMap<>();
     public static boolean isTransaction(JSONObject jsonObject) {
-        String resposnse_type = jsonObject.optString("janus");
-        return resposnse_type.equals("success") ||
-                resposnse_type.equals("error") ||
-                resposnse_type.equals("ack");
+        String response_type = jsonObject.optString("janus");
+        return response_type.equals("success") ||
+                response_type.equals("error") ||
+                response_type.equals("ack");
     }
 
-    public static void processTransaction(JSONObject jsonObject, ConcurrentHashMap<String, JanusTransaction> transactions) {
-        String resposnse_type = jsonObject.optString("janus");
-        if (resposnse_type.equals("success")) {
+    public void processTransaction(JSONObject jsonObject) {
+        String response_type = jsonObject.optString("janus");
+        if (response_type.equals("success")) {
             String transaction = jsonObject.optString("transaction");
             JanusTransaction jt = transactions.get(transaction);
             if (jt.success != null) {
                 jt.success.success(jsonObject);
             }
             transactions.remove(transaction);
-        } else if (resposnse_type.equals("error")) {
+        } else if (response_type.equals("error")) {
             String transaction = jsonObject.optString("transaction");
             JanusTransaction jt = transactions.get(transaction);
             if (jt.error != null) {
                 jt.error.error(jsonObject);
             }
             transactions.remove(transaction);
-        } else if (resposnse_type.equals("ack")) {
+        } else if (response_type.equals("ack")) {
             Log.d("JanusTransaction", "Just an ack");
         }
     }
 
-    public String tid;
-    public TransactionCallbackSuccess success;
-    public TransactionCallbackError error;
+    public void addTransaction(JanusTransaction transaction) {
+        transactions.put(transaction.tid, transaction);
+    }
+
+    public class JanusTransaction {
+        public String tid;
+        public TransactionCallbackSuccess success;
+        public TransactionCallbackError error;
+    }
 }

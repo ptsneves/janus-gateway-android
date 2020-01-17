@@ -33,8 +33,7 @@ import static android.content.ContentValues.TAG;
 
 public class WebSocketChannel extends WebSocketClient {
     private static final String TAG = "WebSocketChannel";
-
-    private ConcurrentHashMap<String, JanusTransaction> transactions = new ConcurrentHashMap<>();
+    private JanusTransactions janusTransactions = new JanusTransactions();
     private ConcurrentHashMap<BigInteger, JanusHandle> handles = new ConcurrentHashMap<>();
     private ConcurrentHashMap<BigInteger, JanusHandle> feeds = new ConcurrentHashMap<>();
     private Handler mHandler;
@@ -57,22 +56,15 @@ public class WebSocketChannel extends WebSocketClient {
     @Override
     public void onOpen(ServerHandshake handshakedata) {
         String transaction = randomString(12);
-        JanusTransaction jt = new JanusTransaction();
-        jt.tid =  transaction;
-        jt.success = new TransactionCallbackSuccess() {
-            @Override
-            public void success(JSONObject jo) {
-                mSessionId = new BigInteger(jo.optJSONObject("data").optString("id"));
-                mHandler.post(fireKeepAlive);
-                publisherCreateHandle();
-            }
+        JanusTransactions.JanusTransaction jt = janusTransactions.new JanusTransaction();
+        jt.tid = transaction;
+        jt.success = jo -> {
+            mSessionId = new BigInteger(jo.optJSONObject("data").optString("id"));
+            mHandler.post(fireKeepAlive);
+            publisherCreateHandle();
         };
-        jt.error = new TransactionCallbackError() {
-            @Override
-            public void error(JSONObject jo) {
-            }
-        };
-        transactions.put(transaction, jt);
+        jt.error = jo -> {};
+        janusTransactions.addTransaction(jt);
         JSONObject msg = new JSONObject();
         try {
             msg.putOpt("janus", "create");
@@ -89,8 +81,8 @@ public class WebSocketChannel extends WebSocketClient {
         try {
             JSONObject jo = new JSONObject(message);
             String janus = jo.optString("janus");
-            if (JanusTransaction.isTransaction(jo)) {
-                JanusTransaction.processTransaction(jo, transactions);
+            if (JanusTransactions.isTransaction(jo)) {
+                janusTransactions.processTransaction(jo);
             } else {
                 JanusHandle handle = handles.get(new BigInteger(jo.optString("sender")));
                 if (handle == null) {
@@ -133,35 +125,18 @@ public class WebSocketChannel extends WebSocketClient {
 
     private void publisherCreateHandle() {
         String transaction = randomString(12);
-        JanusTransaction jt = new JanusTransaction();
+        JanusTransactions.JanusTransaction jt = janusTransactions.new JanusTransaction();
         jt.tid = transaction;
-        jt.success = new TransactionCallbackSuccess() {
-            @Override
-            public void success(JSONObject jo) {
-                JanusHandle janusHandle = new JanusHandle();
-                janusHandle.handleId = new BigInteger(jo.optJSONObject("data").optString("id"));
-                janusHandle.onJoined = new OnJoined() {
-                    @Override
-                    public void onJoined(JanusHandle jh) {
-                        delegate.onPublisherJoined(jh.handleId);
-                    }
-                };
-                janusHandle.onRemoteJsep = new OnRemoteJsep() {
-                    @Override
-                    public void onRemoteJsep(JanusHandle jh,  JSONObject jsep) {
-                        delegate.onPublisherRemoteJsep(jh.handleId, jsep);
-                    }
-                };
-                handles.put(janusHandle.handleId, janusHandle);
-                publisherJoinRoom(janusHandle);
-            }
+        jt.success = jo -> {
+            JanusHandle janusHandle = new JanusHandle();
+            janusHandle.handleId = new BigInteger(jo.optJSONObject("data").optString("id"));
+            janusHandle.onJoined = jh -> delegate.onPublisherJoined(jh.handleId);
+            janusHandle.onRemoteJsep = (jh, jsep) -> delegate.onPublisherRemoteJsep(jh.handleId, jsep);
+            handles.put(janusHandle.handleId, janusHandle);
+            publisherJoinRoom(janusHandle);
         };
-        jt.error = new TransactionCallbackError() {
-            @Override
-            public void error(JSONObject jo) {
-            }
-        };
-        transactions.put(transaction, jt);
+        jt.error = jo -> {};
+        janusTransactions.addTransaction(jt);
         JSONObject msg = new JSONObject();
         try {
             msg.putOpt("janus", "attach");
@@ -280,39 +255,21 @@ public class WebSocketChannel extends WebSocketClient {
 
     private void subscriberCreateHandle(final BigInteger feed, final String display) {
         String transaction = randomString(12);
-        JanusTransaction jt = new JanusTransaction();
+        JanusTransactions.JanusTransaction jt = janusTransactions.new JanusTransaction();
         jt.tid = transaction;
-        jt.success = new TransactionCallbackSuccess() {
-            @Override
-            public void success(JSONObject jo) {
-                JanusHandle janusHandle = new JanusHandle();
-                janusHandle.handleId = new BigInteger(jo.optJSONObject("data").optString("id"));
-                janusHandle.feedId = feed;
-                janusHandle.display = display;
-                janusHandle.onRemoteJsep = new OnRemoteJsep() {
-                    @Override
-                    public void onRemoteJsep(JanusHandle jh, JSONObject jsep) {
-                        delegate.subscriberHandleRemoteJsep(jh.handleId, jsep);
-                    }
-                };
-                janusHandle.onLeaving = new OnJoined() {
-                    @Override
-                    public void onJoined(JanusHandle jh) {
-                        subscriberOnLeaving(jh);
-                    }
-                };
-                handles.put(janusHandle.handleId, janusHandle);
-                feeds.put(janusHandle.feedId, janusHandle);
-                subscriberJoinRoom(janusHandle);
-            }
+        jt.success = jo -> {
+            JanusHandle janusHandle = new JanusHandle();
+            janusHandle.handleId = new BigInteger(jo.optJSONObject("data").optString("id"));
+            janusHandle.feedId = feed;
+            janusHandle.display = display;
+            janusHandle.onRemoteJsep = (jh, jsep) -> delegate.subscriberHandleRemoteJsep(jh.handleId, jsep);
+            janusHandle.onLeaving = jh -> subscriberOnLeaving(jh);
+            handles.put(janusHandle.handleId, janusHandle);
+            feeds.put(janusHandle.feedId, janusHandle);
+            subscriberJoinRoom(janusHandle);
         };
-        jt.error = new TransactionCallbackError() {
-            @Override
-            public void error(JSONObject jo) {
-            }
-        };
-
-        transactions.put(transaction, jt);
+        jt.error = jo -> {};
+        janusTransactions.addTransaction(jt);
         JSONObject msg = new JSONObject();
         try {
             msg.putOpt("janus", "attach");
@@ -349,23 +306,16 @@ public class WebSocketChannel extends WebSocketClient {
 
     private void subscriberOnLeaving(final JanusHandle handle) {
         String transaction = randomString(12);
-        JanusTransaction jt = new JanusTransaction();
+        JanusTransactions.JanusTransaction jt = janusTransactions.new JanusTransaction();
         jt.tid = transaction;
-        jt.success = new TransactionCallbackSuccess() {
-            @Override
-            public void success(JSONObject jo) {
-                delegate.onLeaving(handle.handleId);
-                handles.remove(handle.handleId);
-                feeds.remove(handle.feedId);
-            }
+        jt.success = jo -> {
+            delegate.onLeaving(handle.handleId);
+            handles.remove(handle.handleId);
+            feeds.remove(handle.feedId);
         };
-        jt.error = new TransactionCallbackError() {
-            @Override
-            public void error(JSONObject jo) {
-            }
-        };
+        jt.error = jo -> {};
 
-        transactions.put(transaction, jt);
+        janusTransactions.addTransaction(jt);
 
         JSONObject jo = new JSONObject();
         try {
