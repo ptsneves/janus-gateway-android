@@ -29,10 +29,11 @@ import java.util.concurrent.TimeUnit;
 
 import org.java_websocket.client.WebSocketClient;
 
-public class WebSocketChannel {
+import static android.content.ContentValues.TAG;
+
+public class WebSocketChannel extends WebSocketClient {
     private static final String TAG = "WebSocketChannel";
 
-    private WebSocketTransport mWebSocket;
     private ConcurrentHashMap<String, JanusTransaction> transactions = new ConcurrentHashMap<>();
     private ConcurrentHashMap<BigInteger, JanusHandle> handles = new ConcurrentHashMap<>();
     private ConcurrentHashMap<BigInteger, JanusHandle> feeds = new ConcurrentHashMap<>();
@@ -40,74 +41,56 @@ public class WebSocketChannel {
     private BigInteger mSessionId;
     private JanusRTCInterface delegate;
 
-    public WebSocketChannel() {
-        mHandler = new Handler();
-    }
-
-    class WebSocketTransport extends WebSocketClient {
-
-        public WebSocketTransport(URI serverUri, Draft protocolDraft, Map<String, String> httpHeaders) {
-            super(serverUri, protocolDraft, httpHeaders);
-        }
-
-        @Override
-        public void onOpen(ServerHandshake handshakedata) {
-            Log.d(TAG, "onOpen");
-            createSession();
-        }
-
-        @Override
-        public void onMessage(String message) {
-            Log.i(TAG, "onMessage");
-            WebSocketChannel.this.onMessage(message);
-        }
-
-        @Override
-        public void onClose(int code, String reason, boolean remote) {
-            Log.e(TAG, "Connection closed by " + ( remote ? "remote peer" : "us" ) + " Code: " + code + " Reason: " + reason );
-        }
-
-        @Override
-        public void onError(Exception ex) {
-            Log.e(TAG, "onFailure " + ex.getMessage());
-            ex.printStackTrace();
-        }
-    }
-
-    public void initConnection(String url) throws URISyntaxException, InterruptedException, InvalidObjectException {
-        HashMap<String, String> httpHeaders = new HashMap<>();
+    public static WebSocketChannel createWebSockeChannel(String url) throws URISyntaxException, InterruptedException, InvalidObjectException {
         Draft_6455 janus_draft = new Draft_6455(Collections.<IExtension>emptyList(),
                 Collections.<IProtocol>singletonList(new Protocol("janus-protocol")));
-
-        mWebSocket = new WebSocketTransport(
-                new URI(url), janus_draft, httpHeaders);
-
-        if (!mWebSocket.connectBlocking(10, TimeUnit.SECONDS))
-            throw new InvalidObjectException("Could not connect to janus");
-
+        return new WebSocketChannel(url, janus_draft);
     }
 
-    private void onMessage(String message) {
+    private WebSocketChannel(String url, Draft_6455 janus_draft) throws URISyntaxException, InterruptedException, InvalidObjectException  {
+        super(new URI(url), janus_draft);
+        mHandler = new Handler();
+        if (!connectBlocking(10, TimeUnit.SECONDS))
+            throw new InvalidObjectException("Could not connect to janus");
+    }
+
+    @Override
+    public void onOpen(ServerHandshake handshakedata) {
+        String transaction = randomString(12);
+        JanusTransaction jt = new JanusTransaction();
+        jt.tid =  transaction;
+        jt.success = new TransactionCallbackSuccess() {
+            @Override
+            public void success(JSONObject jo) {
+                mSessionId = new BigInteger(jo.optJSONObject("data").optString("id"));
+                mHandler.post(fireKeepAlive);
+                publisherCreateHandle();
+            }
+        };
+        jt.error = new TransactionCallbackError() {
+            @Override
+            public void error(JSONObject jo) {
+            }
+        };
+        transactions.put(transaction, jt);
+        JSONObject msg = new JSONObject();
+        try {
+            msg.putOpt("janus", "create");
+            msg.putOpt("transaction", transaction);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        send(msg.toString());
+    }
+
+    @Override
+    public void onMessage(String message) {
         Log.e(TAG, "onMessage" + message);
         try {
             JSONObject jo = new JSONObject(message);
             String janus = jo.optString("janus");
-            if (janus.equals("success")) {
-                String transaction = jo.optString("transaction");
-                JanusTransaction jt = transactions.get(transaction);
-                if (jt.success != null) {
-                    jt.success.success(jo);
-                }
-                transactions.remove(transaction);
-            } else if (janus.equals("error")) {
-                String transaction = jo.optString("transaction");
-                JanusTransaction jt = transactions.get(transaction);
-                if (jt.error != null) {
-                    jt.error.error(jo);
-                }
-                transactions.remove(transaction);
-            } else if (janus.equals("ack")) {
-                Log.d(TAG, "Just an ack");
+            if (JanusTransaction.isTransaction(jo)) {
+                JanusTransaction.processTransaction(jo, transactions);
             } else {
                 JanusHandle handle = handles.get(new BigInteger(jo.optString("sender")));
                 if (handle == null) {
@@ -146,34 +129,6 @@ public class WebSocketChannel {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-    }
-
-    private void createSession() {
-        String transaction = randomString(12);
-        JanusTransaction jt = new JanusTransaction();
-        jt.tid =  transaction;
-        jt.success = new TransactionCallbackSuccess() {
-            @Override
-            public void success(JSONObject jo) {
-                mSessionId = new BigInteger(jo.optJSONObject("data").optString("id"));
-                mHandler.post(fireKeepAlive);
-                publisherCreateHandle();
-            }
-        };
-        jt.error = new TransactionCallbackError() {
-            @Override
-            public void error(JSONObject jo) {
-            }
-        };
-        transactions.put(transaction, jt);
-        JSONObject msg = new JSONObject();
-        try {
-            msg.putOpt("janus", "create");
-            msg.putOpt("transaction", transaction);
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-        mWebSocket.send(msg.toString());
     }
 
     private void publisherCreateHandle() {
@@ -216,7 +171,7 @@ public class WebSocketChannel {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        mWebSocket.send(msg.toString());
+        send(msg.toString());
     }
 
     private void publisherJoinRoom(JanusHandle handle) {
@@ -236,7 +191,7 @@ public class WebSocketChannel {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        mWebSocket.send(msg.toString());
+        send(msg.toString());
     }
 
     public void publisherCreateOffer(final BigInteger handleId, final SessionDescription sdp) {
@@ -260,7 +215,7 @@ public class WebSocketChannel {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        mWebSocket.send(message.toString());
+        send(message.toString());
     }
 
     public void subscriberCreateAnswer(final BigInteger handleId, final SessionDescription sdp) {
@@ -285,7 +240,7 @@ public class WebSocketChannel {
             e.printStackTrace();
         }
 
-        mWebSocket.send(message.toString());
+        send(message.toString());
     }
 
     public void trickleCandidate(final BigInteger handleId, final IceCandidate iceCandidate) {
@@ -304,7 +259,7 @@ public class WebSocketChannel {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        mWebSocket.send(message.toString());
+        send(message.toString());
     }
 
     public void trickleCandidateComplete(final BigInteger handleId) {
@@ -368,7 +323,7 @@ public class WebSocketChannel {
             e.printStackTrace();
         }
 
-        mWebSocket.send(msg.toString());
+        send(msg.toString());
     }
 
     private void subscriberJoinRoom(JanusHandle handle) {
@@ -389,7 +344,7 @@ public class WebSocketChannel {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        mWebSocket.send(msg.toString());
+        send(msg.toString());
     }
 
     private void subscriberOnLeaving(final JanusHandle handle) {
@@ -421,7 +376,7 @@ public class WebSocketChannel {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        mWebSocket.send(jo.toString());
+        send(jo.toString());
     }
 
     private void keepAlive() {
@@ -434,7 +389,7 @@ public class WebSocketChannel {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        mWebSocket.send(msg.toString());
+        send(msg.toString());
     }
 
     private Runnable fireKeepAlive = new Runnable() {
@@ -444,6 +399,17 @@ public class WebSocketChannel {
             mHandler.postDelayed(fireKeepAlive, 30000);
         }
     };
+
+    @Override
+    public void onClose(int code, String reason, boolean remote) {
+        Log.e(TAG, "Connection closed by " + ( remote ? "remote peer" : "us" ) + " Code: " + code + " Reason: " + reason );
+    }
+
+    @Override
+    public void onError(Exception ex) {
+        Log.e(TAG, "onFailure " + ex.getMessage());
+        ex.printStackTrace();
+    }
 
     public void setDelegate(JanusRTCInterface delegate) {
         this.delegate = delegate;
