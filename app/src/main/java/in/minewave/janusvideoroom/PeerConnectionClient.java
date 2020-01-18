@@ -66,7 +66,6 @@ public class PeerConnectionClient {
   private PeerConnectionFactory factory;
   private ConcurrentHashMap<BigInteger, JanusConnection> peerConnectionMap;
 
-  PeerConnectionFactory.Options options = null;
   private AudioSource audioSource;
   private VideoSource videoSource;
   private String preferredVideoCodec;
@@ -74,7 +73,6 @@ public class PeerConnectionClient {
   private boolean isError;
   private Timer statsTimer;
   private VideoRenderer.Callbacks localRender;
-  private MediaConstraints pcConstraints;
   private int videoWidth;
   private int videoHeight;
   private int videoFps;
@@ -193,10 +191,6 @@ public class PeerConnectionClient {
     return instance;
   }
 
-  public void setPeerConnectionFactoryOptions(PeerConnectionFactory.Options options) {
-    this.options = options;
-  }
-
   public void createPeerConnectionFactory(final Context context,
       final PeerConnectionParameters peerConnectionParameters, final PeerConnectionEvents events) {
     this.peerConnectionParameters = peerConnectionParameters;
@@ -297,19 +291,16 @@ public class PeerConnectionClient {
 
     PeerConnectionFactory.initialize(factory_init_options);
 
-    if (options != null) {
-      Log.d(TAG, "Factory networkIgnoreMask option: " + options.networkIgnoreMask);
-    }
     this.context = context;
-    factory = new PeerConnectionFactory(options);
+    factory = PeerConnectionFactory
+            .builder()
+            .createPeerConnectionFactory();
+
     Log.d(TAG, "Peer connection factory created.");
   }
 
   private void createMediaConstraintsInternal() {
     // Create peer connection constraints.
-    pcConstraints = new MediaConstraints();
-    pcConstraints.optional.add(
-            new MediaConstraints.KeyValuePair(DTLS_SRTP_KEY_AGREEMENT_CONSTRAINT, "true"));
 
     // Create video constraints if video call is enabled.
     videoWidth = peerConnectionParameters.videoWidth;
@@ -347,10 +338,12 @@ public class PeerConnectionClient {
     iceServers.add(iceServer);
     PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
     rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
+    rtcConfig.enableDtlsSrtp = true;
 
     PCObserver pcObserver = new PCObserver();
     SDPObserver sdpObserver = new SDPObserver();
-    PeerConnection peerConnection = factory.createPeerConnection(rtcConfig, pcConstraints, pcObserver);
+
+    PeerConnection peerConnection = factory.createPeerConnection(rtcConfig, pcObserver);
     if (peerConnection == null)
       throw new NullPointerException("peer connection is null");
 
@@ -373,8 +366,6 @@ public class PeerConnectionClient {
       Log.e(TAG, "Peerconnection factory is not created");
       return;
     }
-
-    Log.d(TAG, "PCConstraints: " + pcConstraints.toString());
 
     Log.d(TAG, "EGLContext: " + renderEGLContext);
     factory.setVideoHwAccelerationOptions(renderEGLContext, renderEGLContext);
@@ -426,7 +417,6 @@ public class PeerConnectionClient {
       factory.dispose();
       factory = null;
     }
-    options = null;
     Log.d(TAG, "Closing peer connection done.");
     events.onPeerConnectionClosed();
     PeerConnectionFactory.stopInternalTracingCapture();
