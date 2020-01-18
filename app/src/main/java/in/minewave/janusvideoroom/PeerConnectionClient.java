@@ -1,23 +1,17 @@
 package in.minewave.janusvideoroom;
 
 import android.content.Context;
-import android.os.Environment;
-import android.os.ParcelFileDescriptor;
-import android.provider.MediaStore;
 import android.util.Log;
-import java.io.File;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
-import org.webrtc.CameraVideoCapturer;
 import org.webrtc.DataChannel;
 import org.webrtc.EglBase;
 import org.webrtc.IceCandidate;
@@ -27,14 +21,12 @@ import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnection.IceConnectionState;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.RTCStatsCollectorCallback;
 import org.webrtc.RTCStatsReport;
 import org.webrtc.RtpReceiver;
 import org.webrtc.RtpSender;
 import org.webrtc.SdpObserver;
 import org.webrtc.SessionDescription;
-import org.webrtc.StatsObserver;
-import org.webrtc.StatsReport;
+import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.VideoCapturer;
 import org.webrtc.VideoSink;
 import org.webrtc.VideoSource;
@@ -47,9 +39,6 @@ public class PeerConnectionClient {
   public static final String AUDIO_TRACK_ID = "ARDAMSa0";
   public static final String VIDEO_TRACK_TYPE = "video";
   private static final String TAG = "PCRTCClient";
-  private static final String VIDEO_CODEC_VP8 = "VP8";
-  private static final String VIDEO_CODEC_VP9 = "VP9";
-  private static final String VIDEO_CODEC_H264 = "H264";
   private static final String AUDIO_ECHO_CANCELLATION_CONSTRAINT = "googEchoCancellation";
   private static final String AUDIO_AUTO_GAIN_CONTROL_CONSTRAINT = "googAutoGainControl";
   private static final String AUDIO_HIGH_PASS_FILTER_CONSTRAINT = "googHighpassFilter";
@@ -67,7 +56,6 @@ public class PeerConnectionClient {
 
   private AudioSource audioSource;
   private VideoSource videoSource;
-  private String preferredVideoCodec;
   private boolean videoCapturerStopped;
   private boolean isError;
   private Timer statsTimer;
@@ -237,17 +225,6 @@ public class PeerConnectionClient {
         "Create peer connection factory. Use video: true");
     isError = false;
 
-    // Check preferred video codec.
-    preferredVideoCodec = VIDEO_CODEC_VP8;
-    if (peerConnectionParameters.videoCodec != null) {
-      if (peerConnectionParameters.videoCodec.equals(VIDEO_CODEC_VP9)) {
-        preferredVideoCodec = VIDEO_CODEC_VP9;
-      } else if (peerConnectionParameters.videoCodec.equals(VIDEO_CODEC_H264)) {
-        preferredVideoCodec = VIDEO_CODEC_H264;
-      }
-    }
-    Log.d(TAG, "Pereferred video codec: " + preferredVideoCodec);
-
     // Enable/disable OpenSL ES playback.
     if (!peerConnectionParameters.useOpenSLES) {
       Log.d(TAG, "Disable OpenSL ES audio even if device supports it");
@@ -285,7 +262,6 @@ public class PeerConnectionClient {
             .builder(context)
             .setFieldTrials("")
             .setEnableInternalTracer(true)
-            .setEnableVideoHwAcceleration(true)
             .createInitializationOptions();
 
     PeerConnectionFactory.initialize(factory_init_options);
@@ -366,13 +342,10 @@ public class PeerConnectionClient {
       return;
     }
 
-    Log.d(TAG, "EGLContext: " + renderEGLContext);
-    factory.setVideoHwAccelerationOptions(renderEGLContext, renderEGLContext);
-
     PeerConnection peerConnection = createPeerConnection(handleId, true);
 
     mediaStream = factory.createLocalMediaStream("ARDAMS");
-    mediaStream.addTrack(createVideoTrack(videoCapturer));
+    mediaStream.addTrack(createVideoTrack(videoCapturer, renderEGLContext));
 
     mediaStream.addTrack(createAudioTrack(peerConnectionParameters.noAudioProcessing));
     peerConnection.addStream(mediaStream);
@@ -494,8 +467,10 @@ public class PeerConnectionClient {
     return localAudioTrack;
   }
 
-  private VideoTrack createVideoTrack(VideoCapturer capturer) {
-    videoSource = factory.createVideoSource(capturer);
+  private VideoTrack createVideoTrack(VideoCapturer capturer, EglBase.Context renderEGLContext) {
+    videoSource = factory.createVideoSource(false);
+    SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create("VideoCapturerThread", renderEGLContext);
+    capturer.initialize(surfaceTextureHelper, context,  videoSource.getCapturerObserver());
     capturer.startCapture(videoWidth, videoHeight, videoFps);
 
     localVideoTrack = factory.createVideoTrack(VIDEO_TRACK_ID, videoSource);

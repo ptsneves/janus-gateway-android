@@ -29,6 +29,5 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.0.2'
     implementation 'com.android.support.constraint:constraint-layout:1.0.2'
     implementation 'org.java-websocket:Java-WebSocket:1.4.0'
-    implementation 'org.webrtc:google-webrtc:1.0.23995'
-
+    implementation 'org.webrtc:google-webrtc:1.0.24064'
 }
