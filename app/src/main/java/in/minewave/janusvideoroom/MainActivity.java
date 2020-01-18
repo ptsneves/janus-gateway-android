@@ -71,7 +71,8 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
         remoteRender.init(rootEglBase.getEglBaseContext(), null);
         peerConnectionParameters  = new PeerConnectionParameters(false, 360, 480, 20, "H264", true, 0, "opus", false, false, false, false, false);
         peerConnectionClient = PeerConnectionClient.getInstance();
-        peerConnectionClient.createPeerConnectionFactory(this, peerConnectionParameters, this);
+        peerConnectionClient.createPeerConnectionFactory(this, rootEglBase.getEglBaseContext(),
+                peerConnectionParameters, this);
     }
 
     @Override
@@ -135,6 +136,7 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
                 videoCapturer = createVideoCapturer();
                 if (peerConnectionClient == null)
                     Log.e("sadsdsd", "Shitsz");
+
                 peerConnectionClient.createPeerConnection(rootEglBase.getEglBaseContext(), localRender, videoCapturer, handleId);
 
                 peerConnectionClient.createOffer(handleId);

@@ -242,7 +242,6 @@ public class WebSocketChannel extends WebSocketClient {
         JSONObject message = new JSONObject();
         try {
             candidate.putOpt("completed", true);
-
             message.putOpt("janus", "trickle");
             message.putOpt("candidate", candidate);
             message.putOpt("transaction", randomString(12));

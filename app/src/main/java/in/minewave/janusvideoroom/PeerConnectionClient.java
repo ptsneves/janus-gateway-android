@@ -13,7 +13,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
 import org.webrtc.DataChannel;
+import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
+import org.webrtc.HardwareVideoDecoderFactory;
 import org.webrtc.IceCandidate;
 import org.webrtc.Logging;
 import org.webrtc.MediaConstraints;
@@ -21,6 +23,7 @@ import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnection.IceConnectionState;
 import org.webrtc.PeerConnectionFactory;
+import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.RTCStatsReport;
 import org.webrtc.RtpReceiver;
 import org.webrtc.RtpSender;
@@ -179,6 +182,7 @@ public class PeerConnectionClient {
   }
 
   public void createPeerConnectionFactory(final Context context,
+      final EglBase.Context renderEGLContext,
       final PeerConnectionParameters peerConnectionParameters, final PeerConnectionEvents events) {
     this.peerConnectionParameters = peerConnectionParameters;
     this.events = events;
@@ -196,7 +200,7 @@ public class PeerConnectionClient {
     enableAudio = true;
     localAudioTrack = null;
     statsTimer = new Timer();
-    createPeerConnectionFactoryInternal(context);
+    createPeerConnectionFactoryInternal(context, renderEGLContext);
   }
 
   public void createPeerConnection(final EglBase.Context renderEGLContext,
@@ -220,7 +224,7 @@ public class PeerConnectionClient {
   }
 
 
-  private void createPeerConnectionFactoryInternal(Context context) {
+  private void createPeerConnectionFactoryInternal(Context context, final EglBase.Context renderEGLContext) {
     Log.d(TAG,
         "Create peer connection factory. Use video: true");
     isError = false;
@@ -260,8 +264,7 @@ public class PeerConnectionClient {
 
     PeerConnectionFactory.InitializationOptions factory_init_options = PeerConnectionFactory.InitializationOptions
             .builder(context)
-            .setFieldTrials("")
-            .setEnableInternalTracer(true)
+            .setInjectableLogger(((s, severity, s1) -> {Log.d("internal", s1);}), Logging.Severity.LS_INFO)
             .createInitializationOptions();
 
     PeerConnectionFactory.initialize(factory_init_options);
@@ -269,6 +272,8 @@ public class PeerConnectionClient {
     this.context = context;
     factory = PeerConnectionFactory
             .builder()
+            .setVideoDecoderFactory(new DefaultVideoDecoderFactory(renderEGLContext))
+            .setVideoEncoderFactory(new DefaultVideoEncoderFactory(renderEGLContext, true, true))
             .createPeerConnectionFactory();
 
     Log.d(TAG, "Peer connection factory created.");
@@ -348,6 +353,7 @@ public class PeerConnectionClient {
     mediaStream.addTrack(createVideoTrack(videoCapturer, renderEGLContext));
 
     mediaStream.addTrack(createAudioTrack(peerConnectionParameters.noAudioProcessing));
+    Log.e(TAG, String.format("native %d", peerConnection.getNativePeerConnection()));
     peerConnection.addStream(mediaStream);
     findVideoSender(handleId);
   }
@@ -470,6 +476,7 @@ public class PeerConnectionClient {
   private VideoTrack createVideoTrack(VideoCapturer capturer, EglBase.Context renderEGLContext) {
     videoSource = factory.createVideoSource(false);
     SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create("VideoCapturerThread", renderEGLContext);
+
     capturer.initialize(surfaceTextureHelper, context,  videoSource.getCapturerObserver());
     capturer.startCapture(videoWidth, videoHeight, videoFps);
 
@@ -502,44 +509,30 @@ public class PeerConnectionClient {
     }
     @Override
     public void onIceCandidate(final IceCandidate candidate) {
-      executor.execute(new Runnable() {
-        @Override
-        public void run() {
-          events.onIceCandidate(candidate, connection.handleId);
-        }
-      });
+        events.onIceCandidate(candidate, connection.handleId);
     }
 
     @Override
     public void onIceCandidatesRemoved(final IceCandidate[] candidates) {
-      executor.execute(new Runnable() {
-        @Override
-        public void run() {
-          events.onIceCandidatesRemoved(candidates);
-        }
-      });
+        events.onIceCandidatesRemoved(candidates);
     }
 
     @Override
     public void onSignalingChange(PeerConnection.SignalingState newState) {
-      Log.d(TAG, "SignalingState: " + newState);
+        Log.d(TAG, "SignalingState: " + newState);
     }
 
     @Override
     public void onIceConnectionChange(final PeerConnection.IceConnectionState newState) {
-      executor.execute(new Runnable() {
-        @Override
-        public void run() {
-          Log.d(TAG, "IceConnectionState: " + newState);
-          if (newState == IceConnectionState.CONNECTED) {
-            events.onIceConnected();
-          } else if (newState == IceConnectionState.DISCONNECTED) {
-            events.onIceDisconnected();
-          } else if (newState == IceConnectionState.FAILED) {
-            reportError("ICE connection failed.");
-          }
+        Log.d(TAG, "IceConnectionState: " + newState);
+        if (newState == IceConnectionState.CONNECTED) {
+          events.onIceConnected();
+        } else if (newState == IceConnectionState.DISCONNECTED) {
+          events.onIceDisconnected();
+        } else if (newState == IceConnectionState.FAILED) {
+          reportError("ICE connection failed.");
         }
-      });
+
     }
 
     @Override
@@ -573,12 +566,7 @@ public class PeerConnectionClient {
 
     @Override
     public void onRemoveStream(final MediaStream stream) {
-      executor.execute(new Runnable() {
-        @Override
-        public void run() {
-          remoteVideoTrack = null;
-        }
-      });
+      remoteVideoTrack = null;
     }
 
     @Override

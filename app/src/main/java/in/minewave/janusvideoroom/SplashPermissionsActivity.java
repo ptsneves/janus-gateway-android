@@ -17,6 +17,8 @@ public class SplashPermissionsActivity extends Activity {
             Manifest.permission.CAMERA,
             Manifest.permission.INTERNET,
             Manifest.permission.ACCESS_NETWORK_STATE,
+            Manifest.permission.MODIFY_AUDIO_SETTINGS,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
     };
 
     @Override
