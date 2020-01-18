@@ -241,13 +241,9 @@ public class PeerConnectionClient {
 
 
   private void createPeerConnectionFactoryInternal(Context context) {
-    PeerConnectionFactory.initializeInternalTracer();
     Log.d(TAG,
         "Create peer connection factory. Use video: true");
     isError = false;
-
-    // Initialize field trials.
-    PeerConnectionFactory.initializeFieldTrials("");
 
     // Check preferred video codec.
     preferredVideoCodec = VIDEO_CODEC_VP8;
@@ -293,8 +289,14 @@ public class PeerConnectionClient {
       WebRtcAudioUtils.setWebRtcBasedNoiseSuppressor(false);
     }
 
-    // Create peer connection factory.
-    PeerConnectionFactory.initializeAndroidGlobals(context, true);
+    PeerConnectionFactory.InitializationOptions factory_init_options = PeerConnectionFactory.InitializationOptions
+            .builder(context)
+            .setFieldTrials("")
+            .setEnableInternalTracer(true)
+            .setEnableVideoHwAcceleration(true)
+            .createInitializationOptions();
+
+    PeerConnectionFactory.initialize(factory_init_options);
 
     if (options != null) {
       Log.d(TAG, "Factory networkIgnoreMask option: " + options.networkIgnoreMask);
