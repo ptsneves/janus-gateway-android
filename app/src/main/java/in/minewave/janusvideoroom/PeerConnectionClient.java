@@ -3,6 +3,7 @@ package in.minewave.janusvideoroom;
 import android.content.Context;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.provider.MediaStore;
 import android.util.Log;
 import java.io.File;
 import java.math.BigInteger;
@@ -77,8 +78,6 @@ public class PeerConnectionClient {
   private int videoWidth;
   private int videoHeight;
   private int videoFps;
-  private MediaConstraints audioConstraints;
-  private ParcelFileDescriptor aecDumpFileDescriptor;
   private MediaConstraints sdpMediaConstraints;
   private PeerConnectionParameters peerConnectionParameters;
   private PeerConnectionEvents events;
@@ -88,10 +87,10 @@ public class PeerConnectionClient {
   private boolean renderVideo;
   private VideoTrack localVideoTrack;
   private VideoTrack remoteVideoTrack;
-  private RtpSender localVideoSender;
   // enableAudio is set to true if audio should be sent.
   private boolean enableAudio;
   private AudioTrack localAudioTrack;
+  private RtpSender localVideoSender;
 
 
   public static class PeerConnectionParameters {
@@ -329,20 +328,7 @@ public class PeerConnectionClient {
     }
     Logging.d(TAG, "Capturing format: " + videoWidth + "x" + videoHeight + "@" + videoFps);
 
-    // Create audio constraints.
-    audioConstraints = new MediaConstraints();
-    // added for audio performance measurements
-    if (peerConnectionParameters.noAudioProcessing) {
-      Log.d(TAG, "Disabling audio processing");
-      audioConstraints.mandatory.add(
-          new MediaConstraints.KeyValuePair(AUDIO_ECHO_CANCELLATION_CONSTRAINT, "false"));
-      audioConstraints.mandatory.add(
-          new MediaConstraints.KeyValuePair(AUDIO_AUTO_GAIN_CONTROL_CONSTRAINT, "false"));
-      audioConstraints.mandatory.add(
-          new MediaConstraints.KeyValuePair(AUDIO_HIGH_PASS_FILTER_CONSTRAINT, "false"));
-      audioConstraints.mandatory.add(
-          new MediaConstraints.KeyValuePair(AUDIO_NOISE_SUPPRESSION_CONSTRAINT, "false"));
-    }
+
     // Create SDP constraints.
     sdpMediaConstraints = new MediaConstraints();
     sdpMediaConstraints.mandatory.add(
@@ -398,7 +384,7 @@ public class PeerConnectionClient {
     mediaStream = factory.createLocalMediaStream("ARDAMS");
     mediaStream.addTrack(createVideoTrack(videoCapturer));
 
-    mediaStream.addTrack(createAudioTrack());
+    mediaStream.addTrack(createAudioTrack(peerConnectionParameters.noAudioProcessing));
     peerConnection.addStream(mediaStream);
     findVideoSender(handleId);
   }
@@ -498,7 +484,21 @@ public class PeerConnectionClient {
     });
   }
 
-  private AudioTrack createAudioTrack() {
+  private AudioTrack createAudioTrack(boolean disable_audio_processing) {
+    // Create audio constraints.
+    MediaConstraints audioConstraints = new MediaConstraints();
+    // added for audio performance measurements
+    if (disable_audio_processing) {
+      Log.d(TAG, "Disabling audio processing");
+      audioConstraints.mandatory.add(
+              new MediaConstraints.KeyValuePair(AUDIO_ECHO_CANCELLATION_CONSTRAINT, "false"));
+      audioConstraints.mandatory.add(
+              new MediaConstraints.KeyValuePair(AUDIO_AUTO_GAIN_CONTROL_CONSTRAINT, "false"));
+      audioConstraints.mandatory.add(
+              new MediaConstraints.KeyValuePair(AUDIO_HIGH_PASS_FILTER_CONSTRAINT, "false"));
+      audioConstraints.mandatory.add(
+              new MediaConstraints.KeyValuePair(AUDIO_NOISE_SUPPRESSION_CONSTRAINT, "false"));
+    }
     audioSource = factory.createAudioSource(audioConstraints);
     localAudioTrack = factory.createAudioTrack(AUDIO_TRACK_ID, audioSource);
     localAudioTrack.setEnabled(enableAudio);
