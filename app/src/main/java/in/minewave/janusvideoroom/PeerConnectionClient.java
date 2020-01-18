@@ -351,7 +351,10 @@ public class PeerConnectionClient {
 
   private PeerConnection createPeerConnection(BigInteger handleId, boolean type) {
     Log.d(TAG, "Create peer connection.");
-    PeerConnection.IceServer iceServer = new PeerConnection.IceServer("stun:stun.l.google.com:19302");
+    PeerConnection.IceServer iceServer = PeerConnection.IceServer
+            .builder("stun:stun.l.google.com:19302")
+            .createIceServer();
+
     List<PeerConnection.IceServer> iceServers = new ArrayList<>();
     iceServers.add(iceServer);
     PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
