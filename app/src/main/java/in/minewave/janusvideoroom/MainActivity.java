@@ -18,7 +18,6 @@ import org.webrtc.RTCStatsReport;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoCapturer;
-import org.webrtc.VideoRenderer;
 
 import java.math.BigInteger;
 import in.minewave.janusvideoroom.PeerConnectionClient.PeerConnectionParameters;
