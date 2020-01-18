@@ -63,7 +63,11 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
         }
         mWebSocketChannel.setDelegate(this);
 
-        createLocalRender();
+        localRender = findViewById(R.id.local_video_view);
+        rootEglBase = EglBase.create();
+        localRender.init(rootEglBase.getEglBaseContext(), null);
+        localRender.setEnableHardwareScaler(true);
+
         remoteRender = findViewById(R.id.remote_video_view);
         remoteRender.init(rootEglBase.getEglBaseContext(), null);
         peerConnectionParameters  = new PeerConnectionParameters(false, 360, 480, 20, "H264", true, 0, "opus", false, false, false, false, false);
@@ -75,13 +79,6 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
     protected void onResume() {
         super.onResume();
         peerConnectionClient.startVideoSource();
-    }
-
-    private void createLocalRender() {
-        localRender = findViewById(R.id.local_video_view);
-        rootEglBase = EglBase.create();
-        localRender.init(rootEglBase.getEglBaseContext(), null);
-        localRender.setEnableHardwareScaler(true);
     }
 
     private VideoCapturer createCameraCapturer(CameraEnumerator enumerator) {
