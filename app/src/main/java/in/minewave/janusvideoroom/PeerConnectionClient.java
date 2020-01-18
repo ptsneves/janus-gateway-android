@@ -37,6 +37,7 @@ import org.webrtc.StatsObserver;
 import org.webrtc.StatsReport;
 import org.webrtc.VideoCapturer;
 import org.webrtc.VideoRenderer;
+import org.webrtc.VideoSink;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 import org.webrtc.voiceengine.WebRtcAudioManager;
@@ -72,7 +73,7 @@ public class PeerConnectionClient {
   private boolean videoCapturerStopped;
   private boolean isError;
   private Timer statsTimer;
-  private VideoRenderer.Callbacks localRender;
+  private VideoSink localRender;
   private int videoWidth;
   private int videoHeight;
   private int videoFps;
@@ -213,7 +214,7 @@ public class PeerConnectionClient {
   }
 
   public void createPeerConnection(final EglBase.Context renderEGLContext,
-                                   final VideoRenderer.Callbacks localRender,
+                                   final VideoSink localRender,
                                    final VideoCapturer videoCapturer, final BigInteger handleId) {
     if (peerConnectionParameters == null) {
       Log.e(TAG, "Creating peer connection without initializing factory.");
@@ -501,7 +502,7 @@ public class PeerConnectionClient {
 
     localVideoTrack = factory.createVideoTrack(VIDEO_TRACK_ID, videoSource);
     localVideoTrack.setEnabled(renderVideo);
-    localVideoTrack.addRenderer(new VideoRenderer(localRender));
+    localVideoTrack.addSink(localRender);
     return localVideoTrack;
   }
 

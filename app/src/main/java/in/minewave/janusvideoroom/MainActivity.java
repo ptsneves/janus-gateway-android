@@ -253,7 +253,7 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
 //                remoteRender.init(rootEglBase.getEglBaseContext(), null);
 //                LinearLayout.LayoutParams params  = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
 //                rootView.addView(remoteRender, params);
-                connection.videoTrack.addRenderer(new VideoRenderer(remoteRender));
+                connection.videoTrack.addSink(remoteRender);
             }
         });
     }
