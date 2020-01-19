@@ -7,31 +7,18 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.LinearLayout;
 
-import org.json.JSONObject;
-import org.webrtc.Camera2Capturer;
-import org.webrtc.Camera2Enumerator;
-import org.webrtc.CameraEnumerator;
 import org.webrtc.EglBase;
-import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceViewRenderer;
-import org.webrtc.VideoCapturer;
-
-import java.io.InvalidObjectException;
-import java.math.BigInteger;
-
-import in.minewave.janusvideoroom.Janus.JanusRTCInterface;
 import in.minewave.janusvideoroom.Janus.PeerConnectionClient;
 import in.minewave.janusvideoroom.Janus.PeerConnectionParameters;
 
-public class MainActivity extends AppCompatActivity implements JanusRTCInterface {
+public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
 
     private PeerConnectionClient peerConnectionClient;
 
     private SurfaceViewRenderer localRender;
     private SurfaceViewRenderer remoteRender;
-    private VideoCapturer videoCapturer;
-    private EglBase rootEglBase;
     LinearLayout rootView;
 
 
@@ -54,7 +41,7 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
             setContentView(R.layout.activity_main);
             rootView = findViewById(R.id.activity_main);
             localRender = findViewById(R.id.local_video_view);
-            rootEglBase = EglBase.create();
+            EglBase rootEglBase = EglBase.create();
             localRender.init(rootEglBase.getEglBaseContext(), null);
             localRender.setEnableHardwareScaler(true);
 
@@ -67,7 +54,7 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
                     "H264", 0, "opus", false);
 
             peerConnectionClient = new PeerConnectionClient(this, rootEglBase.getEglBaseContext(),
-                    peerConnectionParameters, remoteRender);
+                    peerConnectionParameters,  localRender, remoteRender);
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -78,70 +65,12 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
     @Override
     protected void onResume() {
         super.onResume();
-        peerConnectionClient.startVideoSource();
+        peerConnectionClient.onResume();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         peerConnectionClient.close();
-    }
-
-    private VideoCapturer createVideoCapturer() throws InvalidObjectException {
-
-        if (Camera2Enumerator.isSupported(this)) {
-            CameraEnumerator enumerator = new Camera2Enumerator(this);
-            final String[] deviceNames = enumerator.getDeviceNames();
-            for (String device_name : deviceNames) {
-                if (enumerator.isFrontFacing(device_name)) {
-                    Log.d(TAG, "Creating capturer using camera2 API.");
-                    return new Camera2Capturer(this, device_name, null);
-                }
-            }
-        }
-        throw new InvalidObjectException("Could not find front camera or camera2enumerator is not supported");
-    }
-
-    // interface JanusRTCInterface
-    @Override
-    public void onPublisherJoined(final BigInteger handleId) {
-        try {
-            videoCapturer = createVideoCapturer();
-        } catch (InvalidObjectException e) {
-            Log.e(TAG, e.getMessage());
-            e.printStackTrace();
-        }
-        peerConnectionClient.createLocalPeerConnection(rootEglBase.getEglBaseContext(), localRender, videoCapturer, handleId);
-        peerConnectionClient.createOffer(handleId);
-    }
-
-    @Override
-    public void onPublisherRemoteJsep(final BigInteger handleId, final JSONObject jsep) {
-        MainActivity.this.runOnUiThread(new Runnable() {
-            public void run() {
-                SessionDescription.Type type = SessionDescription.Type.fromCanonicalForm(jsep.optString("type"));
-                String sdp = jsep.optString("sdp");
-                SessionDescription sessionDescription = new SessionDescription(type, sdp);
-                peerConnectionClient.setRemoteDescription(handleId, sessionDescription);
-            }
-        });
-
-    }
-
-    @Override
-    public void subscriberHandleRemoteJsep(final BigInteger handleId, final JSONObject jsep) {
-        MainActivity.this.runOnUiThread(new Runnable() {
-            public void run() {
-                SessionDescription.Type type = SessionDescription.Type.fromCanonicalForm(jsep.optString("type"));
-                String sdp = jsep.optString("sdp");
-                SessionDescription sessionDescription = new SessionDescription(type, sdp);
-                peerConnectionClient.subscriberHandleRemoteJsep(handleId, sessionDescription);
-            }
-        });
-    }
-
-    @Override
-    public void onLeaving(BigInteger handleId) {
-
     }
 }

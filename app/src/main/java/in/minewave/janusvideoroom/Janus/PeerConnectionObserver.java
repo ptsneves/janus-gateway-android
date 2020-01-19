@@ -9,6 +9,7 @@ import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.RtpReceiver;
 import org.webrtc.SurfaceViewRenderer;
+import org.webrtc.VideoSink;
 import org.webrtc.VideoTrack;
 
 import java.math.BigInteger;
@@ -18,10 +19,10 @@ import java.util.Arrays;
 public class PeerConnectionObserver implements PeerConnection.Observer {
     static String TAG = "PeerConnectionObserver";
     final private BigInteger handleId;
-    final private SurfaceViewRenderer _renderer;
+    final private VideoSink _renderer;
     final private WebSocketChannel _websocket_channel;
 
-    PeerConnectionObserver(SurfaceViewRenderer renderer, WebSocketChannel wsc,
+    PeerConnectionObserver(VideoSink renderer, WebSocketChannel wsc,
                            BigInteger handleId) {
         _renderer = renderer;
         this.handleId = handleId;

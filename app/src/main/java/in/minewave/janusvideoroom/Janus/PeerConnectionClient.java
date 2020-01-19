@@ -10,8 +10,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.json.JSONObject;
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
+import org.webrtc.Camera2Capturer;
+import org.webrtc.Camera2Enumerator;
+import org.webrtc.CameraEnumerator;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
 import org.webrtc.Logging;
@@ -28,7 +33,7 @@ import org.webrtc.VideoSink;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
-public class PeerConnectionClient {
+public class PeerConnectionClient implements JanusRTCInterface {
   public static final String VIDEO_TRACK_ID = "ARDAMSv0";
   public static final String AUDIO_TRACK_ID = "ARDAMSa0";
   private static final String TAG = "PCRTCClient";
@@ -41,12 +46,15 @@ public class PeerConnectionClient {
   final private PeerConnectionFactory factory;
   final private WebSocketChannel _webSocketChannel;
   final private ConcurrentHashMap<BigInteger, JanusConnection> peerConnectionMap;
+  final private VideoSink localRender;
+  final private VideoSink viewRenderer;
 
+  private EglBase.Context renderEGLContext;
   private AudioSource audioSource;
   private VideoSource videoSource;
   private boolean videoCapturerStopped;
   private boolean isError;
-  private VideoSink localRender;
+
   private MediaConstraints sdpMediaConstraints;
   public PeerConnectionParameters peerConnectionParameters;
   private MediaStream mediaStream;
@@ -55,12 +63,11 @@ public class PeerConnectionClient {
   private VideoTrack localVideoTrack;
   private boolean enableAudio;
   private AudioTrack localAudioTrack;
-  private SurfaceViewRenderer viewRenderer;
-
 
   public PeerConnectionClient(final Context context,
                                final EglBase.Context renderEGLContext,
                                final PeerConnectionParameters peerConnectionParameters,
+                               final VideoSink localRender,
                                final SurfaceViewRenderer viewRenderer) throws InterruptedException, InvalidObjectException, URISyntaxException {
     try {
       peerConnectionMap = new ConcurrentHashMap<>();
@@ -73,8 +80,10 @@ public class PeerConnectionClient {
       localVideoTrack = null;
       enableAudio = true;
       localAudioTrack = null;
+      this.localRender = localRender;
       this.viewRenderer = viewRenderer;
       this.context = context;
+      this.renderEGLContext = renderEGLContext;
 
       Log.d(TAG, "Capturing format: " + peerConnectionParameters.videoWidth +
               "x" + peerConnectionParameters.videoHeight + "@" + peerConnectionParameters.videoFps);
@@ -98,13 +107,17 @@ public class PeerConnectionClient {
               .createPeerConnectionFactory();
 
       _webSocketChannel = WebSocketChannel.createWebSockeChannel(peerConnectionParameters.activity,
-              (JanusRTCInterface) peerConnectionParameters.activity,
+              this,
               peerConnectionParameters.janusWebSocketURL);
     }
     catch (Exception e) {
       close();
       throw e;
     }
+  }
+
+  public void onResume(){
+    startVideoSource();
   }
 
   public PeerConnection createRemotePeerConnection(BigInteger handleId) {
@@ -119,7 +132,6 @@ public class PeerConnectionClient {
       Log.e(TAG, "Creating peer connection without initializing factory.");
       return;
     }
-    this.localRender = localRender;
     this.videoCapturer = videoCapturer;
 
     // Create SDP constraints.
@@ -239,7 +251,7 @@ public class PeerConnectionClient {
       peerConnection.createAnswer(connection.sdpObserver, sdpMediaConstraints);
   }
 
-  public void startVideoSource() {
+  private void startVideoSource() {
       if (videoCapturer != null && videoCapturerStopped) {
         Log.d(TAG, "Restart video source.");
         videoCapturer.startCapture(peerConnectionParameters.videoWidth,
@@ -282,5 +294,54 @@ public class PeerConnectionClient {
     localVideoTrack.setEnabled(renderVideo);
     localVideoTrack.addSink(localRender);
     return localVideoTrack;
+  }
+
+
+  // interface JanusRTCInterface
+  @Override
+  public void onPublisherJoined(final BigInteger handleId) {
+    try {
+      videoCapturer = createVideoCapturer();
+    } catch (InvalidObjectException e) {
+      Log.e(TAG, e.getMessage());
+      e.printStackTrace();
+    }
+    createLocalPeerConnection(renderEGLContext, localRender, videoCapturer, handleId);
+    createOffer(handleId);
+  }
+
+  @Override
+  public void onPublisherRemoteJsep(final BigInteger handleId, final JSONObject jsep) {
+    SessionDescription.Type type = SessionDescription.Type.fromCanonicalForm(jsep.optString("type"));
+    String sdp = jsep.optString("sdp");
+    SessionDescription sessionDescription = new SessionDescription(type, sdp);
+    setRemoteDescription(handleId, sessionDescription);
+  }
+
+  @Override
+  public void subscriberHandleRemoteJsep(final BigInteger handleId, final JSONObject jsep) {
+    SessionDescription.Type type = SessionDescription.Type.fromCanonicalForm(jsep.optString("type"));
+    String sdp = jsep.optString("sdp");
+    SessionDescription sessionDescription = new SessionDescription(type, sdp);
+    subscriberHandleRemoteJsep(handleId, sessionDescription);
+  }
+
+  @Override
+  public void onLeaving(BigInteger handleId) {
+
+  }
+  private VideoCapturer createVideoCapturer() throws InvalidObjectException {
+
+    if (Camera2Enumerator.isSupported(context)) {
+      CameraEnumerator enumerator = new Camera2Enumerator(context);
+      final String[] deviceNames = enumerator.getDeviceNames();
+      for (String device_name : deviceNames) {
+        if (enumerator.isFrontFacing(device_name)) {
+          Log.d(TAG, "Creating capturer using camera2 API.");
+          return new Camera2Capturer(context, device_name, null);
+        }
+      }
+    }
+    throw new InvalidObjectException("Could not find front camera or camera2enumerator is not supported");
   }
 }
