@@ -168,11 +168,9 @@ public class PeerConnectionClient implements JanusRTCInterface {
     if (peerConnection == null)
       throw new NullPointerException("peer connection is null");
 
-    SDPObserver sdpObserver = new SDPObserver(_webSocketChannel, peerConnection, handleId, type);
-
     JanusConnection janusConnection = new JanusConnection();
     janusConnection.handleId = handleId;
-    janusConnection.sdpObserver = sdpObserver;
+    janusConnection.sdpObserver = new SDPObserver(_webSocketChannel, peerConnection, handleId, type);
     janusConnection.peerConnection = peerConnection;
     janusConnection.type = type;
 
