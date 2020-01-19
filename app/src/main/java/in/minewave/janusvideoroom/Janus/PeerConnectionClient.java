@@ -17,6 +17,7 @@ import org.webrtc.AudioTrack;
 import org.webrtc.Camera2Capturer;
 import org.webrtc.Camera2Enumerator;
 import org.webrtc.CameraEnumerator;
+import org.webrtc.CapturerObserver;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
 import org.webrtc.Logging;
@@ -123,13 +124,11 @@ public class PeerConnectionClient implements JanusRTCInterface {
   }
 
 
-  public void createLocalPeerConnection(final EglBase.Context renderEGLContext,
-                                   final VideoCapturer videoCapturer, final BigInteger handleId) {
+  public void createLocalPeerConnection( final BigInteger handleId) {
     if (peerConnectionParameters == null) {
       Log.e(TAG, "Creating peer connection without initializing factory.");
       return;
     }
-    this.videoCapturer = videoCapturer;
 
     // Create SDP constraints.
     sdpMediaConstraints = new MediaConstraints();
@@ -141,7 +140,20 @@ public class PeerConnectionClient implements JanusRTCInterface {
     PeerConnection peerConnection = createPeerConnection(handleId, JanusConnection.ConnectionType.LOCAL);
 
     mediaStream = factory.createLocalMediaStream("ARDAMS");
-    mediaStream.addTrack(createVideoTrack(videoCapturer, renderEGLContext));
+    VideoSource videoSource = factory.createVideoSource(false);
+
+    try {
+      switch (peerConnectionParameters.capturerType) {
+        case CAMERA_FRONT:
+          videoCapturer = createCamera2Capturer(videoSource.getCapturerObserver());
+          videoCapturerStopped = false;
+          break;
+      }
+    } catch (InvalidObjectException e) {
+      Log.e(TAG, e.getMessage());
+      e.printStackTrace();
+    }
+    mediaStream.addTrack(createVideoTrack(videoSource));
     mediaStream.addTrack(createAudioTrack(peerConnectionParameters.noAudioProcessing));
     peerConnection.addStream(mediaStream);
   }
@@ -196,6 +208,7 @@ public class PeerConnectionClient implements JanusRTCInterface {
       }
       videoCapturerStopped = true;
       videoCapturer.dispose();
+      videoCapturer = null;
     }
 
     Log.d(TAG, "Closing peer connection factory.");
@@ -252,19 +265,7 @@ public class PeerConnectionClient implements JanusRTCInterface {
     return localAudioTrack;
   }
 
-  private VideoTrack createVideoTrack(VideoCapturer capturer, EglBase.Context renderEGLContext) {
-    VideoSource videoSource = factory.createVideoSource(false);
-    try {
-      switch (peerConnectionParameters.capturerType) {
-        case CAMERA_FRONT:
-          videoCapturer = createCamera2Capturer(videoSource);
-          break;
-      }
-    } catch (InvalidObjectException e) {
-      Log.e(TAG, e.getMessage());
-      e.printStackTrace();
-    }
-
+  private VideoTrack createVideoTrack(VideoSource videoSource) {
     VideoTrack localVideoTrack = factory.createVideoTrack(VIDEO_TRACK_ID, videoSource);
     localVideoTrack.setEnabled(renderVideo);
     localVideoTrack.addSink(localRender);
@@ -275,7 +276,7 @@ public class PeerConnectionClient implements JanusRTCInterface {
   // interface JanusRTCInterface
   @Override
   public void onPublisherJoined(final BigInteger handleId) {
-    createLocalPeerConnection(renderEGLContext, videoCapturer, handleId);
+    createLocalPeerConnection(handleId);
     JanusConnection connection = peerConnectionMap.get(handleId);
     PeerConnection peerConnection = connection.peerConnection;
     if (peerConnection != null && !isError) {
@@ -304,7 +305,7 @@ public class PeerConnectionClient implements JanusRTCInterface {
   public void onLeaving(BigInteger handleId) {
 
   }
-  private VideoCapturer createCamera2Capturer(VideoSource videoSource) throws InvalidObjectException {
+  private VideoCapturer createCamera2Capturer(CapturerObserver capturerObserver) throws InvalidObjectException {
     if (Camera2Enumerator.isSupported(context)) {
       CameraEnumerator enumerator = new Camera2Enumerator(context);
       final String[] deviceNames = enumerator.getDeviceNames();
@@ -313,7 +314,7 @@ public class PeerConnectionClient implements JanusRTCInterface {
           Log.d(TAG, "Creating capturer using camera2 API.");
           SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create("VideoCapturerThread", renderEGLContext);
           Camera2Capturer camera2Capturer = new Camera2Capturer(context, device_name, null);
-          camera2Capturer.initialize(surfaceTextureHelper, context,  videoSource.getCapturerObserver());
+          camera2Capturer.initialize(surfaceTextureHelper, context, capturerObserver);
           camera2Capturer.startCapture(peerConnectionParameters.videoWidth, peerConnectionParameters.videoHeight,
                   peerConnectionParameters.videoFps);
           return camera2Capturer;
