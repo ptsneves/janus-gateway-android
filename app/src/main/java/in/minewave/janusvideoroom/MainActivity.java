@@ -5,7 +5,6 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.LinearLayout;
 
 import org.webrtc.EglBase;
 import org.webrtc.SurfaceViewRenderer;
@@ -19,7 +18,6 @@ public class MainActivity extends AppCompatActivity {
 
     private SurfaceViewRenderer localRender;
     private SurfaceViewRenderer remoteRender;
-    LinearLayout rootView;
 
 
     private void alertBox(String reason_to_finish) {
@@ -39,7 +37,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         try {
             setContentView(R.layout.activity_main);
-            rootView = findViewById(R.id.activity_main);
             localRender = findViewById(R.id.local_video_view);
             EglBase rootEglBase = EglBase.create();
             localRender.init(rootEglBase.getEglBaseContext(), null);
