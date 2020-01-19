@@ -10,6 +10,7 @@ import android.widget.LinearLayout;
 
 import org.json.JSONObject;
 import org.webrtc.Camera1Enumerator;
+import org.webrtc.Camera2Capturer;
 import org.webrtc.Camera2Enumerator;
 import org.webrtc.CameraEnumerator;
 import org.webrtc.EglBase;
@@ -19,6 +20,7 @@ import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoCapturer;
 
+import java.io.InvalidObjectException;
 import java.math.BigInteger;
 import in.minewave.janusvideoroom.PeerConnectionClient.PeerConnectionParameters;
 import in.minewave.janusvideoroom.PeerConnectionClient.PeerConnectionEvents;
@@ -81,51 +83,19 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
         peerConnectionClient.startVideoSource();
     }
 
-    private VideoCapturer createCameraCapturer(CameraEnumerator enumerator) {
-        final String[] deviceNames = enumerator.getDeviceNames();
+    private VideoCapturer createVideoCapturer() throws InvalidObjectException {
 
-        // First, try to find front facing camera
-        Log.d(TAG, "Looking for front facing cameras.");
-        for (String deviceName : deviceNames) {
-            if (enumerator.isFrontFacing(deviceName)) {
-                Log.d(TAG, "Creating front facing camera capturer.");
-                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
-
-                if (videoCapturer != null) {
-                    return videoCapturer;
-                }
-            }
-        }
-
-        // Front facing camera not found, try something else
-        Log.d(TAG, "Looking for other cameras.");
-        for (String deviceName : deviceNames) {
-            if (!enumerator.isFrontFacing(deviceName)) {
-                Log.d(TAG, "Creating other camera capturer.");
-                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
-
-                if (videoCapturer != null) {
-                    return videoCapturer;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private VideoCapturer createVideoCapturer() {
         if (Camera2Enumerator.isSupported(this)) {
-            Log.d(TAG, "Creating capturer using camera2 API.");
-            videoCapturer = createCameraCapturer(new Camera2Enumerator(this));
-        } else {
-            Log.d(TAG, "Creating capturer using camera1 API.");
-            videoCapturer = createCameraCapturer(new Camera1Enumerator(true));
+            CameraEnumerator enumerator = new Camera2Enumerator(this);
+            final String[] deviceNames = enumerator.getDeviceNames();
+            for (String device_name : deviceNames) {
+                if (enumerator.isFrontFacing(device_name)) {
+                    Log.d(TAG, "Creating capturer using camera2 API.");
+                    return new Camera2Capturer(this, device_name, null);
+                }
+            }
         }
-        if (videoCapturer == null) {
-            Log.e(TAG, "Failed to open camera");
-            return null;
-        }
-        return videoCapturer;
+        throw new InvalidObjectException("Could not find front camera or camera2enumerator is not supported");
     }
 
     // interface JanusRTCInterface
@@ -133,12 +103,13 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
     public void onPublisherJoined(final BigInteger handleId) {
         MainActivity.this.runOnUiThread(new Runnable() {
             public void run() {
-                videoCapturer = createVideoCapturer();
-                if (peerConnectionClient == null)
-                    Log.e("sadsdsd", "Shitsz");
-
+                try {
+                    videoCapturer = createVideoCapturer();
+                } catch (InvalidObjectException e) {
+                    Log.e(TAG, e.getMessage());
+                    e.printStackTrace();
+                }
                 peerConnectionClient.createPeerConnection(rootEglBase.getEglBaseContext(), localRender, videoCapturer, handleId);
-
                 peerConnectionClient.createOffer(handleId);
             }
         });
