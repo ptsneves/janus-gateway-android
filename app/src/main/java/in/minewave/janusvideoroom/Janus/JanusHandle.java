@@ -13,11 +13,9 @@ interface OnRemoteJsep {
 }
 
 public class JanusHandle {
-
     public BigInteger handleId;
     public BigInteger feedId;
     public String display;
-
     public OnJoined onJoined;
     public OnRemoteJsep onRemoteJsep;
     public OnJoined onLeaving;

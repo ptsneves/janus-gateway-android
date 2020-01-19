@@ -13,6 +13,5 @@ public class JanusConnection {
     public BigInteger handleId;
     public PeerConnection peerConnection;
     public SDPObserver sdpObserver;
-    public VideoTrack videoTrack;
     public ConnectionType type;
 }

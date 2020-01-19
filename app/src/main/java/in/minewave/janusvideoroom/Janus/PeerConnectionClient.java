@@ -3,7 +3,6 @@ package in.minewave.janusvideoroom.Janus;
 import android.content.Context;
 import android.util.Log;
 import java.math.BigInteger;
-import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -51,50 +50,12 @@ public class PeerConnectionClient {
   public PeerConnectionParameters peerConnectionParameters;
   private MediaStream mediaStream;
   private VideoCapturer videoCapturer;
-  // enableVideo is set to true if video should be rendered and sent.
   private boolean renderVideo;
   private VideoTrack localVideoTrack;
-  private VideoTrack remoteVideoTrack;
-  // enableAudio is set to true if audio should be sent.
   private boolean enableAudio;
   private AudioTrack localAudioTrack;
   private SurfaceViewRenderer viewRenderer;
   private WebSocketChannel _webSocketChannel;
-
-  public class PeerConnectionParameters {
-    public final int videoWidth;
-    public final int videoHeight;
-    public final int videoFps;
-    public final String videoCodec;
-    public final int audioStartBitrate;
-    public final String audioCodec;
-    public final boolean noAudioProcessing;
-
-    public PeerConnectionParameters(
-        int videoWidth, int videoHeight, int videoFps, String videoCodec,
-        int audioStartBitrate, String audioCodec,
-        boolean noAudioProcessing) {
-
-      // If video resolution is not specified, default to HD.
-      if (videoWidth == 0 || videoHeight == 0) {
-        throw new InvalidParameterException("Video width or height cannot be 0");
-      }
-
-      // If fps is not specified, default to 30.
-      if (videoFps == 0) {
-        throw new InvalidParameterException("Video FPS cannot be 0");
-      }
-      Logging.d(TAG, "Capturing format: " + videoWidth + "x" + videoHeight + "@" + videoFps);
-
-      this.videoWidth = videoWidth;
-      this.videoHeight = videoHeight;
-      this.videoFps = videoFps;
-      this.videoCodec = videoCodec;
-      this.audioStartBitrate = audioStartBitrate;
-      this.audioCodec = audioCodec;
-      this.noAudioProcessing = noAudioProcessing;
-    }
-  }
 
   private PeerConnectionClient() {
     // Executor thread is started once in private ctor and is used for all
@@ -113,7 +74,6 @@ public class PeerConnectionClient {
                                           final SurfaceViewRenderer viewRenderer,
                                           final WebSocketChannel webSocketChannel) {
     this.peerConnectionParameters = peerConnectionParameters;
-    // Reset variables to initial states.
     this.context = null;
     factory = null;
     videoCapturerStopped = false;
@@ -122,14 +82,14 @@ public class PeerConnectionClient {
     videoCapturer = null;
     renderVideo = true;
     localVideoTrack = null;
-    remoteVideoTrack = null;
     enableAudio = true;
     localAudioTrack = null;
     this.viewRenderer = viewRenderer;
     this._webSocketChannel = webSocketChannel;
 
-    Log.d(TAG,
-            "Create peer connection factory. Use video: true");
+    Log.d(TAG, "Capturing format: " + peerConnectionParameters.videoWidth +
+            "x" + peerConnectionParameters.videoHeight + "@" + peerConnectionParameters.videoFps);
+
     isError = false;
 
     PeerConnectionFactory.InitializationOptions factory_init_options = PeerConnectionFactory.InitializationOptions
