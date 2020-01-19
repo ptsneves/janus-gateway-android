@@ -48,9 +48,7 @@ public class PeerConnectionClient implements JanusRTCInterface {
   final private VideoSink localRender;
   final private VideoSink viewRenderer;
 
-  private EglBase.Context renderEGLContext;
-  private AudioSource audioSource;
-  private VideoSource videoSource;
+  final private EglBase.Context renderEGLContext;
   private boolean videoCapturerStopped;
   private boolean isError;
 
@@ -188,10 +186,7 @@ public class PeerConnectionClient implements JanusRTCInterface {
         }
       }
     }
-    Log.d(TAG, "Closing audio source.");
-    if (audioSource != null) {
-      audioSource.dispose();
-    }
+
     Log.d(TAG, "Stopping capture.");
     if (videoCapturer != null) {
       try {
@@ -202,10 +197,7 @@ public class PeerConnectionClient implements JanusRTCInterface {
       videoCapturerStopped = true;
       videoCapturer.dispose();
     }
-    Log.d(TAG, "Closing video source.");
-    if (videoSource != null) {
-      videoSource.dispose();
-    }
+
     Log.d(TAG, "Closing peer connection factory.");
     if (factory != null)
       factory.dispose();
@@ -254,18 +246,18 @@ public class PeerConnectionClient implements JanusRTCInterface {
       audioConstraints.mandatory.add(
               new MediaConstraints.KeyValuePair(AUDIO_NOISE_SUPPRESSION_CONSTRAINT, "false"));
     }
-    audioSource = factory.createAudioSource(audioConstraints);
+    AudioSource audioSource = factory.createAudioSource(audioConstraints);
     AudioTrack localAudioTrack = factory.createAudioTrack(AUDIO_TRACK_ID, audioSource);
     localAudioTrack.setEnabled(enableAudio);
     return localAudioTrack;
   }
 
   private VideoTrack createVideoTrack(VideoCapturer capturer, EglBase.Context renderEGLContext) {
-    videoSource = factory.createVideoSource(false);
+    VideoSource videoSource = factory.createVideoSource(false);
     try {
       switch (peerConnectionParameters.capturerType) {
         case CAMERA_FRONT:
-          videoCapturer = createCamera2Capturer();
+          videoCapturer = createCamera2Capturer(videoSource);
           break;
       }
     } catch (InvalidObjectException e) {
@@ -312,7 +304,7 @@ public class PeerConnectionClient implements JanusRTCInterface {
   public void onLeaving(BigInteger handleId) {
 
   }
-  private VideoCapturer createCamera2Capturer() throws InvalidObjectException {
+  private VideoCapturer createCamera2Capturer(VideoSource videoSource) throws InvalidObjectException {
     if (Camera2Enumerator.isSupported(context)) {
       CameraEnumerator enumerator = new Camera2Enumerator(context);
       final String[] deviceNames = enumerator.getDeviceNames();
