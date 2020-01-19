@@ -212,8 +212,6 @@ public class PeerConnectionClient implements JanusRTCInterface {
     if (factory != null)
       factory.dispose();
     Log.d(TAG, "Closing peer connection done.");
-    PeerConnectionFactory.stopInternalTracingCapture();
-    PeerConnectionFactory.shutdownInternalTracer();
     if (_webSocketChannel != null)
       _webSocketChannel.close();
   }
