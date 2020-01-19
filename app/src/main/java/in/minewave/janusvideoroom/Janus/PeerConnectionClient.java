@@ -57,8 +57,7 @@ public class PeerConnectionClient implements JanusRTCInterface {
   public PeerConnectionParameters peerConnectionParameters;
   private MediaStream mediaStream;
   private VideoCapturer videoCapturer;
-  private boolean renderVideo;
-  private boolean enableAudio;
+
   public PeerConnectionClient(final Context context,
                                final EglBase.Context renderEGLContext,
                                final PeerConnectionParameters peerConnectionParameters,
@@ -71,8 +70,6 @@ public class PeerConnectionClient implements JanusRTCInterface {
       isError = false;
       mediaStream = null;
       videoCapturer = null;
-      renderVideo = true;
-      enableAudio = true;
       this.localRender = localRender;
       this.viewRenderer = viewRenderer;
       this.context = context;
@@ -261,13 +258,13 @@ public class PeerConnectionClient implements JanusRTCInterface {
     }
     AudioSource audioSource = factory.createAudioSource(audioConstraints);
     AudioTrack localAudioTrack = factory.createAudioTrack(AUDIO_TRACK_ID, audioSource);
-    localAudioTrack.setEnabled(enableAudio);
+    localAudioTrack.setEnabled(true);
     return localAudioTrack;
   }
 
   private VideoTrack createVideoTrack(VideoSource videoSource) {
     VideoTrack localVideoTrack = factory.createVideoTrack(VIDEO_TRACK_ID, videoSource);
-    localVideoTrack.setEnabled(renderVideo);
+    localVideoTrack.setEnabled(true);
     localVideoTrack.addSink(localRender);
     return localVideoTrack;
   }
