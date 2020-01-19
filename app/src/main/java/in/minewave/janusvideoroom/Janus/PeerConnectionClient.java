@@ -126,7 +126,6 @@ public class PeerConnectionClient implements JanusRTCInterface {
 
 
   public void createLocalPeerConnection(final EglBase.Context renderEGLContext,
-                                   final VideoSink localRender,
                                    final VideoCapturer videoCapturer, final BigInteger handleId) {
     if (peerConnectionParameters == null) {
       Log.e(TAG, "Creating peer connection without initializing factory.");
@@ -147,7 +146,6 @@ public class PeerConnectionClient implements JanusRTCInterface {
     mediaStream.addTrack(createVideoTrack(videoCapturer, renderEGLContext));
     mediaStream.addTrack(createAudioTrack(peerConnectionParameters.noAudioProcessing));
     peerConnection.addStream(mediaStream);
-
   }
 
   private PeerConnection createPeerConnection(BigInteger handleId, JanusConnection.ConnectionType type) {
@@ -218,14 +216,6 @@ public class PeerConnectionClient implements JanusRTCInterface {
       _webSocketChannel.close();
   }
 
-  public void createOffer(final BigInteger handleId) {
-      JanusConnection connection = peerConnectionMap.get(handleId);
-      PeerConnection peerConnection = connection.peerConnection;
-      if (peerConnection != null && !isError) {
-        Log.d(TAG, "PC Create OFFER");
-        peerConnection.createOffer(connection.sdpObserver, sdpMediaConstraints);
-      }
-  }
 
   public void setRemoteDescription(final BigInteger handleId, final SessionDescription sdp) {
     PeerConnection peerConnection = peerConnectionMap.get(handleId).peerConnection;
@@ -298,8 +288,14 @@ public class PeerConnectionClient implements JanusRTCInterface {
       Log.e(TAG, e.getMessage());
       e.printStackTrace();
     }
-    createLocalPeerConnection(renderEGLContext, localRender, videoCapturer, handleId);
-    createOffer(handleId);
+
+    createLocalPeerConnection(renderEGLContext, videoCapturer, handleId);
+    JanusConnection connection = peerConnectionMap.get(handleId);
+    PeerConnection peerConnection = connection.peerConnection;
+    if (peerConnection != null && !isError) {
+      Log.d(TAG, "PC Create OFFER");
+      peerConnection.createOffer(connection.sdpObserver, sdpMediaConstraints);
+    }
   }
 
   @Override
