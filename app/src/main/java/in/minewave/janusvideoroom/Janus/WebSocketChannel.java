@@ -32,7 +32,7 @@ public class WebSocketChannel extends WebSocketClient {
     private JanusTransactions janusTransactions = new JanusTransactions();
     private ConcurrentHashMap<BigInteger, JanusHandle> handles = new ConcurrentHashMap<>();
     private ConcurrentHashMap<BigInteger, JanusHandle> feeds = new ConcurrentHashMap<>();
-    private Handler mHandler;
+    private Handler keepaliveHandler;
     private BigInteger mSessionId;
     private JanusRTCInterface delegate;
     private Activity _activity;
@@ -45,7 +45,7 @@ public class WebSocketChannel extends WebSocketClient {
 
     private WebSocketChannel(Activity activity, JanusRTCInterface delegate, String url, Draft_6455 janus_draft) throws URISyntaxException, InterruptedException, InvalidObjectException  {
         super(new URI(url), janus_draft);
-        mHandler = new Handler();
+        keepaliveHandler = new Handler();
         this.delegate = delegate;
         _activity = activity;
         if (!connectBlocking(10, TimeUnit.SECONDS))
@@ -59,7 +59,7 @@ public class WebSocketChannel extends WebSocketClient {
         jt.tid = transaction;
         jt.success = jo -> {
             mSessionId = new BigInteger(jo.optJSONObject("data").optString("id"));
-            mHandler.post(fireKeepAlive);
+            keepaliveHandler.post(fireKeepAlive);
             publisherCreateHandle();
         };
         jt.error = jo -> {};
@@ -330,24 +330,20 @@ public class WebSocketChannel extends WebSocketClient {
         send(jo.toString());
     }
 
-    private void keepAlive() {
-        String transaction = randomString(12);
-        JSONObject msg = new JSONObject();
-        try {
-            msg.putOpt("janus", "keepalive");
-            msg.putOpt("session_id", mSessionId);
-            msg.putOpt("transaction", transaction);
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-        send(msg.toString());
-    }
-
     private Runnable fireKeepAlive = new Runnable() {
         @Override
         public void run() {
-            keepAlive();
-            mHandler.postDelayed(fireKeepAlive, 30000);
+            String transaction = randomString(12);
+            JSONObject msg = new JSONObject();
+            try {
+                msg.putOpt("janus", "keepalive");
+                msg.putOpt("session_id", mSessionId);
+                msg.putOpt("transaction", transaction);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            send(msg.toString());
+            keepaliveHandler.postDelayed(fireKeepAlive, 30000);
         }
     };
 
