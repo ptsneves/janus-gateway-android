@@ -9,33 +9,32 @@ import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.RtpReceiver;
 import org.webrtc.SurfaceViewRenderer;
+import org.webrtc.VideoTrack;
 
+import java.math.BigInteger;
 import java.util.Arrays;
 
 // Implementation detail: observe ICE & stream changes and react accordingly.
 public class PeerConnectionObserver implements PeerConnection.Observer {
     static String TAG = "PeerConnectionObserver";
-    private JanusConnection connection;
-    private PeerConnection peerConnection;
-    private SurfaceViewRenderer _renderer;
-    private WebSocketChannel _websocket_channel;
+    final private BigInteger handleId;
+    final private SurfaceViewRenderer _renderer;
+    final private WebSocketChannel _websocket_channel;
 
-    PeerConnectionObserver(SurfaceViewRenderer renderer, WebSocketChannel wsc) {
+    PeerConnectionObserver(SurfaceViewRenderer renderer, WebSocketChannel wsc,
+                           BigInteger handleId) {
         _renderer = renderer;
+        this.handleId = handleId;
         _websocket_channel = wsc;
     }
 
-    public void setConnection(JanusConnection connection) {
-        this.connection = connection;
-        this.peerConnection = connection.peerConnection;
-    }
     @Override
     public void onIceCandidate(final IceCandidate candidate) {
         Log.d(TAG, "=========onIceCandidate========");
         if (candidate != null) {
-            _websocket_channel.trickleCandidate(connection.handleId, candidate);
+            _websocket_channel.trickleCandidate(handleId, candidate);
         } else {
-            _websocket_channel.trickleCandidateComplete(connection.handleId);
+            _websocket_channel.trickleCandidateComplete(handleId);
         }
     }
 
@@ -75,21 +74,20 @@ public class PeerConnectionObserver implements PeerConnection.Observer {
     public void onAddStream(final MediaStream stream) {
         Log.d(TAG, "=========== onAddStream ==========");
         if (stream.videoTracks.size() == 1) {
-            connection.videoTrack = stream.videoTracks.get(0);
-            connection.videoTrack.setEnabled(true);
-            connection.videoTrack.addSink(_renderer);
+            VideoTrack videoTrack = stream.videoTracks.get(0);
+            videoTrack.setEnabled(true);
+            videoTrack.addSink(_renderer);
         }
     }
 
     @Override
     public void onRemoveStream(final MediaStream stream) {
-        connection.videoTrack = null;
+        Log.i(TAG, "Removed stream");
     }
 
     @Override
     public void onDataChannel(final DataChannel dc) {
         Log.d(TAG, "New Data channel " + dc.label());
-
     }
 
     @Override

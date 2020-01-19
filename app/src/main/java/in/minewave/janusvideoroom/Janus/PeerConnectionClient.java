@@ -28,7 +28,6 @@ import org.webrtc.VideoTrack;
 public class PeerConnectionClient {
   public static final String VIDEO_TRACK_ID = "ARDAMSv0";
   public static final String AUDIO_TRACK_ID = "ARDAMSa0";
-  public static final String VIDEO_TRACK_TYPE = "video";
   private static final String TAG = "PCRTCClient";
   private static final String AUDIO_ECHO_CANCELLATION_CONSTRAINT = "googEchoCancellation";
   private static final String AUDIO_AUTO_GAIN_CONTROL_CONSTRAINT = "googAutoGainControl";
@@ -136,7 +135,6 @@ public class PeerConnectionClient {
 
     mediaStream = factory.createLocalMediaStream("ARDAMS");
     mediaStream.addTrack(createVideoTrack(videoCapturer, renderEGLContext));
-
     mediaStream.addTrack(createAudioTrack(peerConnectionParameters.noAudioProcessing));
     peerConnection.addStream(mediaStream);
 
@@ -154,8 +152,8 @@ public class PeerConnectionClient {
     rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
     rtcConfig.enableDtlsSrtp = true;
 
-    PeerConnectionObserver pcObserver = new PeerConnectionObserver(viewRenderer, _webSocketChannel);
 
+    PeerConnectionObserver pcObserver = new PeerConnectionObserver(viewRenderer, _webSocketChannel, handleId);
     PeerConnection peerConnection = factory.createPeerConnection(rtcConfig, pcObserver);
     if (peerConnection == null)
       throw new NullPointerException("peer connection is null");
@@ -170,7 +168,6 @@ public class PeerConnectionClient {
 
     peerConnectionMap.put(handleId, janusConnection);
 
-    pcObserver.setConnection(janusConnection);
     Log.d(TAG, "Peer connection created.");
     return peerConnection;
   }
