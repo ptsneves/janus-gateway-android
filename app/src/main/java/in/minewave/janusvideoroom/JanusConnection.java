@@ -7,10 +7,13 @@ import org.webrtc.VideoTrack;
 import java.math.BigInteger;
 
 public class JanusConnection {
+    public enum ConnectionType {
+        REMOTE,
+        LOCAL
+    };
     public BigInteger handleId;
     public PeerConnection peerConnection;
-    public PeerConnectionClient.SDPObserver sdpObserver;
+    public SDPObserver sdpObserver;
     public VideoTrack videoTrack;
-    public SurfaceViewRenderer videoRender;
-    public boolean type;
+    public ConnectionType type;
 }
