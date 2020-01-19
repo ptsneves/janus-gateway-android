@@ -71,7 +71,8 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
 
         remoteRender = findViewById(R.id.remote_video_view);
         remoteRender.init(rootEglBase.getEglBaseContext(), null);
-        peerConnectionParameters  = new PeerConnectionParameters(false, 360, 480, 20, "H264", true, 0, "opus", false, false, false, false, false);
+        peerConnectionParameters  = new PeerConnectionParameters(360,
+                480, 30, "H264", 0, "opus", false);
         peerConnectionClient = PeerConnectionClient.getInstance();
         peerConnectionClient.createPeerConnectionFactory(this, rootEglBase.getEglBaseContext(),
                 peerConnectionParameters, this);
@@ -113,7 +114,6 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
                 peerConnectionClient.createOffer(handleId);
             }
         });
-
     }
 
     @Override

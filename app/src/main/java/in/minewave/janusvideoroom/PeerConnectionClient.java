@@ -6,7 +6,6 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Timer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -15,7 +14,6 @@ import org.webrtc.AudioTrack;
 import org.webrtc.DataChannel;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
-import org.webrtc.HardwareVideoDecoderFactory;
 import org.webrtc.IceCandidate;
 import org.webrtc.Logging;
 import org.webrtc.MediaConstraints;
@@ -26,7 +24,6 @@ import org.webrtc.PeerConnectionFactory;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.RTCStatsReport;
 import org.webrtc.RtpReceiver;
-import org.webrtc.RtpSender;
 import org.webrtc.SdpObserver;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceTextureHelper;
@@ -34,8 +31,6 @@ import org.webrtc.VideoCapturer;
 import org.webrtc.VideoSink;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
-import org.webrtc.voiceengine.WebRtcAudioManager;
-import org.webrtc.voiceengine.WebRtcAudioUtils;
 
 public class PeerConnectionClient {
   public static final String VIDEO_TRACK_ID = "ARDAMSv0";
@@ -61,7 +56,6 @@ public class PeerConnectionClient {
   private VideoSource videoSource;
   private boolean videoCapturerStopped;
   private boolean isError;
-  private Timer statsTimer;
   private VideoSink localRender;
   private int videoWidth;
   private int videoHeight;
@@ -78,42 +72,28 @@ public class PeerConnectionClient {
   // enableAudio is set to true if audio should be sent.
   private boolean enableAudio;
   private AudioTrack localAudioTrack;
-  private RtpSender localVideoSender;
 
 
   public static class PeerConnectionParameters {
-    public final boolean tracing;
     public final int videoWidth;
     public final int videoHeight;
     public final int videoFps;
     public final String videoCodec;
-    public final boolean videoCodecHwAcceleration;
     public final int audioStartBitrate;
     public final String audioCodec;
     public final boolean noAudioProcessing;
-    public final boolean useOpenSLES;
-    public final boolean disableBuiltInAEC;
-    public final boolean disableBuiltInAGC;
-    public final boolean disableBuiltInNS;
 
-    public PeerConnectionParameters(boolean tracing,
+    public PeerConnectionParameters(
         int videoWidth, int videoHeight, int videoFps, String videoCodec,
-        boolean videoCodecHwAcceleration, int audioStartBitrate, String audioCodec,
-        boolean noAudioProcessing, boolean useOpenSLES, boolean disableBuiltInAEC,
-        boolean disableBuiltInAGC, boolean disableBuiltInNS) {
-      this.tracing = tracing;
+        int audioStartBitrate, String audioCodec,
+        boolean noAudioProcessing) {
       this.videoWidth = videoWidth;
       this.videoHeight = videoHeight;
       this.videoFps = videoFps;
       this.videoCodec = videoCodec;
-      this.videoCodecHwAcceleration = videoCodecHwAcceleration;
       this.audioStartBitrate = audioStartBitrate;
       this.audioCodec = audioCodec;
       this.noAudioProcessing = noAudioProcessing;
-      this.useOpenSLES = useOpenSLES;
-      this.disableBuiltInAEC = disableBuiltInAEC;
-      this.disableBuiltInAGC = disableBuiltInAGC;
-      this.disableBuiltInNS = disableBuiltInNS;
     }
   }
 
@@ -196,11 +176,28 @@ public class PeerConnectionClient {
     renderVideo = true;
     localVideoTrack = null;
     remoteVideoTrack = null;
-    localVideoSender = null;
     enableAudio = true;
     localAudioTrack = null;
-    statsTimer = new Timer();
-    createPeerConnectionFactoryInternal(context, renderEGLContext);
+
+    Log.d(TAG,
+            "Create peer connection factory. Use video: true");
+    isError = false;
+
+    PeerConnectionFactory.InitializationOptions factory_init_options = PeerConnectionFactory.InitializationOptions
+            .builder(context)
+            .setInjectableLogger(((s, severity, s1) -> {Log.d("internal", s1);}), Logging.Severity.LS_INFO)
+            .createInitializationOptions();
+
+    PeerConnectionFactory.initialize(factory_init_options);
+
+    this.context = context;
+    factory = PeerConnectionFactory
+            .builder()
+            .setVideoDecoderFactory(new DefaultVideoDecoderFactory(renderEGLContext))
+            .setVideoEncoderFactory(new DefaultVideoEncoderFactory(renderEGLContext, true, true))
+            .createPeerConnectionFactory();
+
+    Log.d(TAG, "Peer connection factory created.");
   }
 
   public void createPeerConnection(final EglBase.Context renderEGLContext,
@@ -223,61 +220,6 @@ public class PeerConnectionClient {
 
   }
 
-
-  private void createPeerConnectionFactoryInternal(Context context, final EglBase.Context renderEGLContext) {
-    Log.d(TAG,
-        "Create peer connection factory. Use video: true");
-    isError = false;
-
-    // Enable/disable OpenSL ES playback.
-    if (!peerConnectionParameters.useOpenSLES) {
-      Log.d(TAG, "Disable OpenSL ES audio even if device supports it");
-      WebRtcAudioManager.setBlacklistDeviceForOpenSLESUsage(true /* enable */);
-    } else {
-      Log.d(TAG, "Allow OpenSL ES audio if device supports it");
-      WebRtcAudioManager.setBlacklistDeviceForOpenSLESUsage(false);
-    }
-
-    if (peerConnectionParameters.disableBuiltInAEC) {
-      Log.d(TAG, "Disable built-in AEC even if device supports it");
-      WebRtcAudioUtils.setWebRtcBasedAcousticEchoCanceler(true);
-    } else {
-      Log.d(TAG, "Enable built-in AEC if device supports it");
-      WebRtcAudioUtils.setWebRtcBasedAcousticEchoCanceler(false);
-    }
-
-    if (peerConnectionParameters.disableBuiltInAGC) {
-      Log.d(TAG, "Disable built-in AGC even if device supports it");
-      WebRtcAudioUtils.setWebRtcBasedAutomaticGainControl(true);
-    } else {
-      Log.d(TAG, "Enable built-in AGC if device supports it");
-      WebRtcAudioUtils.setWebRtcBasedAutomaticGainControl(false);
-    }
-
-    if (peerConnectionParameters.disableBuiltInNS) {
-      Log.d(TAG, "Disable built-in NS even if device supports it");
-      WebRtcAudioUtils.setWebRtcBasedNoiseSuppressor(true);
-    } else {
-      Log.d(TAG, "Enable built-in NS if device supports it");
-      WebRtcAudioUtils.setWebRtcBasedNoiseSuppressor(false);
-    }
-
-    PeerConnectionFactory.InitializationOptions factory_init_options = PeerConnectionFactory.InitializationOptions
-            .builder(context)
-            .setInjectableLogger(((s, severity, s1) -> {Log.d("internal", s1);}), Logging.Severity.LS_INFO)
-            .createInitializationOptions();
-
-    PeerConnectionFactory.initialize(factory_init_options);
-
-    this.context = context;
-    factory = PeerConnectionFactory
-            .builder()
-            .setVideoDecoderFactory(new DefaultVideoDecoderFactory(renderEGLContext))
-            .setVideoEncoderFactory(new DefaultVideoEncoderFactory(renderEGLContext, true, true))
-            .createPeerConnectionFactory();
-
-    Log.d(TAG, "Peer connection factory created.");
-  }
 
   private void createMediaConstraintsInternal() {
     // Create peer connection constraints.
@@ -353,14 +295,11 @@ public class PeerConnectionClient {
     mediaStream.addTrack(createVideoTrack(videoCapturer, renderEGLContext));
 
     mediaStream.addTrack(createAudioTrack(peerConnectionParameters.noAudioProcessing));
-    Log.e(TAG, String.format("native %d", peerConnection.getNativePeerConnection()));
     peerConnection.addStream(mediaStream);
-    findVideoSender(handleId);
   }
 
   private void closeInternal() {
     Log.d(TAG, "Closing peer connection.");
-    statsTimer.cancel();
 
     if (peerConnectionMap != null) {
       for (Map.Entry<BigInteger, JanusConnection> entry: peerConnectionMap.entrySet()) {
@@ -479,19 +418,6 @@ public class PeerConnectionClient {
     localVideoTrack.setEnabled(renderVideo);
     localVideoTrack.addSink(localRender);
     return localVideoTrack;
-  }
-
-  private void findVideoSender(final BigInteger handleId) {
-    PeerConnection peerConnection = peerConnectionMap.get(handleId).peerConnection;
-    for (RtpSender sender : peerConnection.getSenders()) {
-      if (sender.track() != null) {
-        String trackType = sender.track().kind();
-        if (trackType.equals(VIDEO_TRACK_TYPE)) {
-          Log.d(TAG, "Found video sender.");
-          localVideoSender = sender;
-        }
-      }
-    }
   }
 
   // Implementation detail: observe ICE & stream changes and react accordingly.
