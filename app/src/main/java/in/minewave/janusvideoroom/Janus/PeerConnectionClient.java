@@ -1,4 +1,4 @@
-package in.minewave.janusvideoroom;
+package in.minewave.janusvideoroom.Janus;
 
 import android.content.Context;
 import android.util.Log;

@@ -1,11 +1,10 @@
-package in.minewave.janusvideoroom;
+package in.minewave.janusvideoroom.Janus;
 
 import android.app.Activity;
 import android.os.Handler;
 import android.text.TextUtils;
 import android.util.Log;
 
-import org.java_websocket.drafts.Draft;
 import org.java_websocket.drafts.Draft_6455;
 import org.java_websocket.extensions.IExtension;
 import org.java_websocket.handshake.ServerHandshake;
@@ -22,15 +21,11 @@ import java.math.BigInteger;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import org.java_websocket.client.WebSocketClient;
-
-import static android.content.ContentValues.TAG;
 
 public class WebSocketChannel extends WebSocketClient {
     private static final String TAG = "WebSocketChannel";

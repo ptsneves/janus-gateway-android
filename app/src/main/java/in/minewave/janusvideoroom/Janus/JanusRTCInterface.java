@@ -1,4 +1,4 @@
-package in.minewave.janusvideoroom;
+package in.minewave.janusvideoroom.Janus;
 
 
 import org.json.JSONObject;

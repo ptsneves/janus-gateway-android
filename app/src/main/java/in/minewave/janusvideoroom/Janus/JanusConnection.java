@@ -1,7 +1,6 @@
-package in.minewave.janusvideoroom;
+package in.minewave.janusvideoroom.Janus;
 
 import org.webrtc.PeerConnection;
-import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoTrack;
 
 import java.math.BigInteger;

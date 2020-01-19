@@ -18,7 +18,11 @@ import org.webrtc.VideoCapturer;
 
 import java.io.InvalidObjectException;
 import java.math.BigInteger;
-import in.minewave.janusvideoroom.PeerConnectionClient.PeerConnectionParameters;
+
+import in.minewave.janusvideoroom.Janus.JanusRTCInterface;
+import in.minewave.janusvideoroom.Janus.PeerConnectionClient;
+import in.minewave.janusvideoroom.Janus.PeerConnectionClient.PeerConnectionParameters;
+import in.minewave.janusvideoroom.Janus.WebSocketChannel;
 
 public class MainActivity extends AppCompatActivity implements JanusRTCInterface {
     private static final String TAG = "MainActivity";

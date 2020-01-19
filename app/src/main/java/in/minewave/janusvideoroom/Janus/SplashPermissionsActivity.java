@@ -1,4 +1,4 @@
-package in.minewave.janusvideoroom;
+package in.minewave.janusvideoroom.Janus;
 
 import android.Manifest;
 import android.app.Activity;
@@ -7,6 +7,8 @@ import android.content.pm.PackageManager;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+
+import in.minewave.janusvideoroom.MainActivity;
 
 /*
 "Stolen" from https://stackoverflow.com/a/37845874/227990
