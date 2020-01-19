@@ -441,15 +441,10 @@ public class PeerConnectionClient {
 
   private void reportError(final String errorMessage) {
     Log.e(TAG, "Peerconnection error: " + errorMessage);
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        if (!isError) {
-          events.onPeerConnectionError(errorMessage);
-          isError = true;
-        }
-      }
-    });
+    if (!isError) {
+      events.onPeerConnectionError(errorMessage);
+      isError = true;
+    }
   }
 
   private AudioTrack createAudioTrack(boolean disable_audio_processing) {
