@@ -54,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
                     peerConnectionParameters,  localRender, remoteRender);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, e.getStackTrace().toString());
             alertBox(e.getMessage());
         }
     }
