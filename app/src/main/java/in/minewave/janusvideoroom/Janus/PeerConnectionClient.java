@@ -262,8 +262,6 @@ public class PeerConnectionClient implements JanusRTCInterface {
 
   private VideoTrack createVideoTrack(VideoCapturer capturer, EglBase.Context renderEGLContext) {
     videoSource = factory.createVideoSource(false);
-    SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create("VideoCapturerThread", renderEGLContext);
-
     try {
       switch (peerConnectionParameters.capturerType) {
         case CAMERA_FRONT:
@@ -274,9 +272,6 @@ public class PeerConnectionClient implements JanusRTCInterface {
       Log.e(TAG, e.getMessage());
       e.printStackTrace();
     }
-    capturer.initialize(surfaceTextureHelper, context,  videoSource.getCapturerObserver());
-    capturer.startCapture(peerConnectionParameters.videoWidth, peerConnectionParameters.videoHeight,
-            peerConnectionParameters.videoFps);
 
     VideoTrack localVideoTrack = factory.createVideoTrack(VIDEO_TRACK_ID, videoSource);
     localVideoTrack.setEnabled(renderVideo);
@@ -318,14 +313,18 @@ public class PeerConnectionClient implements JanusRTCInterface {
 
   }
   private VideoCapturer createCamera2Capturer() throws InvalidObjectException {
-
     if (Camera2Enumerator.isSupported(context)) {
       CameraEnumerator enumerator = new Camera2Enumerator(context);
       final String[] deviceNames = enumerator.getDeviceNames();
       for (String device_name : deviceNames) {
         if (enumerator.isFrontFacing(device_name)) {
           Log.d(TAG, "Creating capturer using camera2 API.");
-          return new Camera2Capturer(context, device_name, null);
+          SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create("VideoCapturerThread", renderEGLContext);
+          Camera2Capturer camera2Capturer = new Camera2Capturer(context, device_name, null);
+          camera2Capturer.initialize(surfaceTextureHelper, context,  videoSource.getCapturerObserver());
+          camera2Capturer.startCapture(peerConnectionParameters.videoWidth, peerConnectionParameters.videoHeight,
+                  peerConnectionParameters.videoFps);
+          return camera2Capturer;
         }
       }
     }
