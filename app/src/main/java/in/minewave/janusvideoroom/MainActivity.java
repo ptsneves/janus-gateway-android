@@ -22,7 +22,6 @@ import java.math.BigInteger;
 import in.minewave.janusvideoroom.Janus.JanusRTCInterface;
 import in.minewave.janusvideoroom.Janus.PeerConnectionClient;
 import in.minewave.janusvideoroom.Janus.PeerConnectionParameters;
-import in.minewave.janusvideoroom.Janus.WebSocketChannel;
 
 public class MainActivity extends AppCompatActivity implements JanusRTCInterface {
     private static final String TAG = "MainActivity";
@@ -67,8 +66,7 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
                     getString(R.string.janus_websocket_uri), this, 360, 480, 30,
                     "H264", 0, "opus", false);
 
-            peerConnectionClient = PeerConnectionClient.getInstance();
-            peerConnectionClient.createPeerConnectionFactory(this, rootEglBase.getEglBaseContext(),
+            peerConnectionClient = new PeerConnectionClient(this, rootEglBase.getEglBaseContext(),
                     peerConnectionParameters, remoteRender);
         }
         catch (Exception e) {
@@ -113,7 +111,7 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
             Log.e(TAG, e.getMessage());
             e.printStackTrace();
         }
-        peerConnectionClient.createPeerConnection(rootEglBase.getEglBaseContext(), localRender, videoCapturer, handleId);
+        peerConnectionClient.createLocalPeerConnection(rootEglBase.getEglBaseContext(), localRender, videoCapturer, handleId);
         peerConnectionClient.createOffer(handleId);
     }
 

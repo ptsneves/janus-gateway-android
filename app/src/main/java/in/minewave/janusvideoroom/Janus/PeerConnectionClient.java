@@ -28,8 +28,6 @@ import org.webrtc.VideoSink;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
-import in.minewave.janusvideoroom.R;
-
 public class PeerConnectionClient {
   public static final String VIDEO_TRACK_ID = "ARDAMSv0";
   public static final String AUDIO_TRACK_ID = "ARDAMSa0";
@@ -39,11 +37,10 @@ public class PeerConnectionClient {
   private static final String AUDIO_HIGH_PASS_FILTER_CONSTRAINT = "googHighpassFilter";
   private static final String AUDIO_NOISE_SUPPRESSION_CONSTRAINT = "googNoiseSuppression";
 
-  private static final PeerConnectionClient instance = new PeerConnectionClient();
-
-  private Context context;
-  private PeerConnectionFactory factory;
-  private ConcurrentHashMap<BigInteger, JanusConnection> peerConnectionMap;
+  final private Context context;
+  final private PeerConnectionFactory factory;
+  final private WebSocketChannel _webSocketChannel;
+  final private ConcurrentHashMap<BigInteger, JanusConnection> peerConnectionMap;
 
   private AudioSource audioSource;
   private VideoSource videoSource;
@@ -59,65 +56,63 @@ public class PeerConnectionClient {
   private boolean enableAudio;
   private AudioTrack localAudioTrack;
   private SurfaceViewRenderer viewRenderer;
-  private WebSocketChannel _webSocketChannel;
 
-  private PeerConnectionClient() {
-    // Executor thread is started once in private ctor and is used for all
-    // peer connection API calls to ensure new peer connection factory is
-    // created on the same thread as previously destroyed factory.
-    peerConnectionMap = new ConcurrentHashMap<>();
+
+  public PeerConnectionClient(final Context context,
+                               final EglBase.Context renderEGLContext,
+                               final PeerConnectionParameters peerConnectionParameters,
+                               final SurfaceViewRenderer viewRenderer) throws InterruptedException, InvalidObjectException, URISyntaxException {
+    try {
+      peerConnectionMap = new ConcurrentHashMap<>();
+      this.peerConnectionParameters = peerConnectionParameters;
+      videoCapturerStopped = false;
+      isError = false;
+      mediaStream = null;
+      videoCapturer = null;
+      renderVideo = true;
+      localVideoTrack = null;
+      enableAudio = true;
+      localAudioTrack = null;
+      this.viewRenderer = viewRenderer;
+      this.context = context;
+
+      Log.d(TAG, "Capturing format: " + peerConnectionParameters.videoWidth +
+              "x" + peerConnectionParameters.videoHeight + "@" + peerConnectionParameters.videoFps);
+
+      isError = false;
+
+      PeerConnectionFactory.InitializationOptions factory_init_options = PeerConnectionFactory.InitializationOptions
+              .builder(context)
+              .setInjectableLogger(((s, severity, s1) -> {
+                Log.d("internal", s1);
+              }), Logging.Severity.LS_INFO)
+              .createInitializationOptions();
+
+      PeerConnectionFactory.initialize(factory_init_options);
+
+
+      factory = PeerConnectionFactory
+              .builder()
+              .setVideoDecoderFactory(new DefaultVideoDecoderFactory(renderEGLContext))
+              .setVideoEncoderFactory(new DefaultVideoEncoderFactory(renderEGLContext, true, true))
+              .createPeerConnectionFactory();
+
+      _webSocketChannel = WebSocketChannel.createWebSockeChannel(peerConnectionParameters.activity,
+              (JanusRTCInterface) peerConnectionParameters.activity,
+              peerConnectionParameters.janusWebSocketURL);
+    }
+    catch (Exception e) {
+      close();
+      throw e;
+    }
   }
 
-  public static PeerConnectionClient getInstance() {
-    return instance;
+  public PeerConnection createRemotePeerConnection(BigInteger handleId) {
+    return createPeerConnection(handleId, JanusConnection.ConnectionType.REMOTE);
   }
 
-  public void createPeerConnectionFactory(final Context context,
-      final EglBase.Context renderEGLContext,
-      final PeerConnectionParameters peerConnectionParameters,
-                                          final SurfaceViewRenderer viewRenderer) throws InterruptedException, InvalidObjectException, URISyntaxException {
-    this.peerConnectionParameters = peerConnectionParameters;
-    this.context = null;
-    factory = null;
-    videoCapturerStopped = false;
-    isError = false;
-    mediaStream = null;
-    videoCapturer = null;
-    renderVideo = true;
-    localVideoTrack = null;
-    enableAudio = true;
-    localAudioTrack = null;
-    this.viewRenderer = viewRenderer;
 
-
-    Log.d(TAG, "Capturing format: " + peerConnectionParameters.videoWidth +
-            "x" + peerConnectionParameters.videoHeight + "@" + peerConnectionParameters.videoFps);
-
-    isError = false;
-
-    PeerConnectionFactory.InitializationOptions factory_init_options = PeerConnectionFactory.InitializationOptions
-            .builder(context)
-            .setInjectableLogger(((s, severity, s1) -> {Log.d("internal", s1);}), Logging.Severity.LS_INFO)
-            .createInitializationOptions();
-
-    PeerConnectionFactory.initialize(factory_init_options);
-
-    this.context = context;
-    factory = PeerConnectionFactory
-            .builder()
-            .setVideoDecoderFactory(new DefaultVideoDecoderFactory(renderEGLContext))
-            .setVideoEncoderFactory(new DefaultVideoEncoderFactory(renderEGLContext, true, true))
-            .createPeerConnectionFactory();
-
-    _webSocketChannel = WebSocketChannel.createWebSockeChannel(peerConnectionParameters.activity,
-            (JanusRTCInterface)peerConnectionParameters.activity,
-            peerConnectionParameters.janusWebSocketURL);
-
-
-    Log.d(TAG, "Peer connection factory created.");
-  }
-
-  public void createPeerConnection(final EglBase.Context renderEGLContext,
+  public void createLocalPeerConnection(final EglBase.Context renderEGLContext,
                                    final VideoSink localRender,
                                    final VideoCapturer videoCapturer, final BigInteger handleId) {
     if (peerConnectionParameters == null) {
@@ -133,12 +128,6 @@ public class PeerConnectionClient {
             new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
     sdpMediaConstraints.mandatory.add(
             new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
-
-
-    if (factory == null || isError) {
-      Log.e(TAG, "Peerconnection factory is not created");
-      return;
-    }
 
     PeerConnection peerConnection = createPeerConnection(handleId, JanusConnection.ConnectionType.LOCAL);
 
@@ -194,32 +183,29 @@ public class PeerConnectionClient {
     Log.d(TAG, "Closing audio source.");
     if (audioSource != null) {
       audioSource.dispose();
-      audioSource = null;
     }
     Log.d(TAG, "Stopping capture.");
     if (videoCapturer != null) {
       try {
         videoCapturer.stopCapture();
       } catch (InterruptedException e) {
-        throw new RuntimeException(e);
+        Log.e(TAG, "Failed to stop capture " + e.getMessage());
       }
       videoCapturerStopped = true;
       videoCapturer.dispose();
-      videoCapturer = null;
     }
     Log.d(TAG, "Closing video source.");
     if (videoSource != null) {
       videoSource.dispose();
-      videoSource = null;
     }
     Log.d(TAG, "Closing peer connection factory.");
-    if (factory != null) {
+    if (factory != null)
       factory.dispose();
-      factory = null;
-    }
     Log.d(TAG, "Closing peer connection done.");
     PeerConnectionFactory.stopInternalTracingCapture();
     PeerConnectionFactory.shutdownInternalTracer();
+    if (_webSocketChannel != null)
+      _webSocketChannel.close();
   }
 
   public void createOffer(final BigInteger handleId) {
@@ -242,7 +228,7 @@ public class PeerConnectionClient {
   }
 
   public void subscriberHandleRemoteJsep(final BigInteger handleId, final SessionDescription sdp) {
-      PeerConnection peerConnection = createPeerConnection(handleId, JanusConnection.ConnectionType.REMOTE);
+      PeerConnection peerConnection = createRemotePeerConnection(handleId);
       SDPObserver sdpObserver = peerConnectionMap.get(handleId).sdpObserver;
       if (peerConnection == null || isError) {
         return;
