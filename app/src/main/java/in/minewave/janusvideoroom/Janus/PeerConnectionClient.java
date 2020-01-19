@@ -27,7 +27,6 @@ import org.webrtc.PeerConnectionFactory;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceTextureHelper;
-import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoCapturer;
 import org.webrtc.VideoSink;
 import org.webrtc.VideoSource;
@@ -65,7 +64,7 @@ public class PeerConnectionClient implements JanusRTCInterface {
                                final EglBase.Context renderEGLContext,
                                final PeerConnectionParameters peerConnectionParameters,
                                final VideoSink localRender,
-                               final SurfaceViewRenderer viewRenderer) throws InterruptedException, InvalidObjectException, URISyntaxException {
+                               final VideoSink viewRenderer) throws InterruptedException, InvalidObjectException, URISyntaxException {
     try {
       peerConnectionMap = new ConcurrentHashMap<>();
       this.peerConnectionParameters = peerConnectionParameters;
