@@ -111,7 +111,13 @@ public class PeerConnectionClient implements JanusRTCInterface {
   }
 
   public void onResume(){
-    startVideoSource();
+    if (videoCapturer != null && videoCapturerStopped) {
+      Log.d(TAG, "Restart video capturer.");
+      videoCapturer.startCapture(peerConnectionParameters.videoWidth,
+              peerConnectionParameters.videoHeight,
+              peerConnectionParameters.videoFps);
+      videoCapturerStopped = false;
+    }
   }
 
   public PeerConnection createRemotePeerConnection(BigInteger handleId) {
@@ -243,16 +249,6 @@ public class PeerConnectionClient implements JanusRTCInterface {
       peerConnection.setRemoteDescription(sdpObserver, sdp);
       Log.d(TAG, "PC create ANSWER");
       peerConnection.createAnswer(connection.sdpObserver, sdpMediaConstraints);
-  }
-
-  private void startVideoSource() {
-      if (videoCapturer != null && videoCapturerStopped) {
-        Log.d(TAG, "Restart video source.");
-        videoCapturer.startCapture(peerConnectionParameters.videoWidth,
-                peerConnectionParameters.videoHeight,
-                peerConnectionParameters.videoFps);
-        videoCapturerStopped = false;
-      }
   }
 
   private AudioTrack createAudioTrack(boolean disable_audio_processing) {
