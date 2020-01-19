@@ -82,6 +82,12 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
         peerConnectionClient.startVideoSource();
     }
 
+    @Override
+    protected void onStop() {
+        super.onStop();
+        peerConnectionClient.close();
+    }
+
     private VideoCapturer createVideoCapturer() throws InvalidObjectException {
 
         if (Camera2Enumerator.isSupported(this)) {

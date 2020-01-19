@@ -172,7 +172,7 @@ public class PeerConnectionClient {
     return peerConnection;
   }
 
-  private void closeInternal() {
+  public void close() {
     Log.d(TAG, "Closing peer connection.");
 
     if (peerConnectionMap != null) {
