@@ -3,6 +3,7 @@ package in.minewave.janusvideoroom;
 import android.content.Context;
 import android.util.Log;
 import java.math.BigInteger;
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,8 +35,6 @@ public class PeerConnectionClient {
   private static final String AUDIO_AUTO_GAIN_CONTROL_CONSTRAINT = "googAutoGainControl";
   private static final String AUDIO_HIGH_PASS_FILTER_CONSTRAINT = "googHighpassFilter";
   private static final String AUDIO_NOISE_SUPPRESSION_CONSTRAINT = "googNoiseSuppression";
-  private static final int HD_VIDEO_WIDTH = 1280;
-  private static final int HD_VIDEO_HEIGHT = 720;
 
   private static final PeerConnectionClient instance = new PeerConnectionClient();
 
@@ -48,11 +47,8 @@ public class PeerConnectionClient {
   private boolean videoCapturerStopped;
   private boolean isError;
   private VideoSink localRender;
-  private int videoWidth;
-  private int videoHeight;
-  private int videoFps;
   private MediaConstraints sdpMediaConstraints;
-  private PeerConnectionParameters peerConnectionParameters;
+  public PeerConnectionParameters peerConnectionParameters;
   private MediaStream mediaStream;
   private VideoCapturer videoCapturer;
   // enableVideo is set to true if video should be rendered and sent.
@@ -65,7 +61,7 @@ public class PeerConnectionClient {
   private SurfaceViewRenderer viewRenderer;
   private WebSocketChannel _webSocketChannel;
 
-  public static class PeerConnectionParameters {
+  public class PeerConnectionParameters {
     public final int videoWidth;
     public final int videoHeight;
     public final int videoFps;
@@ -78,6 +74,18 @@ public class PeerConnectionClient {
         int videoWidth, int videoHeight, int videoFps, String videoCodec,
         int audioStartBitrate, String audioCodec,
         boolean noAudioProcessing) {
+
+      // If video resolution is not specified, default to HD.
+      if (videoWidth == 0 || videoHeight == 0) {
+        throw new InvalidParameterException("Video width or height cannot be 0");
+      }
+
+      // If fps is not specified, default to 30.
+      if (videoFps == 0) {
+        throw new InvalidParameterException("Video FPS cannot be 0");
+      }
+      Logging.d(TAG, "Capturing format: " + videoWidth + "x" + videoHeight + "@" + videoFps);
+
       this.videoWidth = videoWidth;
       this.videoHeight = videoHeight;
       this.videoFps = videoFps;
@@ -150,26 +158,6 @@ public class PeerConnectionClient {
     }
     this.localRender = localRender;
     this.videoCapturer = videoCapturer;
-
-    // Create peer connection constraints.
-
-    // Create video constraints if video call is enabled.
-    videoWidth = peerConnectionParameters.videoWidth;
-    videoHeight = peerConnectionParameters.videoHeight;
-    videoFps = peerConnectionParameters.videoFps;
-
-    // If video resolution is not specified, default to HD.
-    if (videoWidth == 0 || videoHeight == 0) {
-      videoWidth = HD_VIDEO_WIDTH;
-      videoHeight = HD_VIDEO_HEIGHT;
-    }
-
-    // If fps is not specified, default to 30.
-    if (videoFps == 0) {
-      videoFps = 30;
-    }
-    Logging.d(TAG, "Capturing format: " + videoWidth + "x" + videoHeight + "@" + videoFps);
-
 
     // Create SDP constraints.
     sdpMediaConstraints = new MediaConstraints();
@@ -302,7 +290,9 @@ public class PeerConnectionClient {
   public void startVideoSource() {
       if (videoCapturer != null && videoCapturerStopped) {
         Log.d(TAG, "Restart video source.");
-        videoCapturer.startCapture(videoWidth, videoHeight, videoFps);
+        videoCapturer.startCapture(peerConnectionParameters.videoWidth,
+                peerConnectionParameters.videoHeight,
+                peerConnectionParameters.videoFps);
         videoCapturerStopped = false;
       }
   }
@@ -333,7 +323,8 @@ public class PeerConnectionClient {
     SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create("VideoCapturerThread", renderEGLContext);
 
     capturer.initialize(surfaceTextureHelper, context,  videoSource.getCapturerObserver());
-    capturer.startCapture(videoWidth, videoHeight, videoFps);
+    capturer.startCapture(peerConnectionParameters.videoWidth, peerConnectionParameters.videoHeight,
+            peerConnectionParameters.videoFps);
 
     localVideoTrack = factory.createVideoTrack(VIDEO_TRACK_ID, videoSource);
     localVideoTrack.setEnabled(renderVideo);
