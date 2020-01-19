@@ -2,7 +2,10 @@ package in.minewave.janusvideoroom.Janus;
 
 import android.content.Context;
 import android.util.Log;
+
+import java.io.InvalidObjectException;
 import java.math.BigInteger;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +27,8 @@ import org.webrtc.VideoCapturer;
 import org.webrtc.VideoSink;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
+
+import in.minewave.janusvideoroom.R;
 
 public class PeerConnectionClient {
   public static final String VIDEO_TRACK_ID = "ARDAMSv0";
@@ -70,8 +75,7 @@ public class PeerConnectionClient {
   public void createPeerConnectionFactory(final Context context,
       final EglBase.Context renderEGLContext,
       final PeerConnectionParameters peerConnectionParameters,
-                                          final SurfaceViewRenderer viewRenderer,
-                                          final WebSocketChannel webSocketChannel) {
+                                          final SurfaceViewRenderer viewRenderer) throws InterruptedException, InvalidObjectException, URISyntaxException {
     this.peerConnectionParameters = peerConnectionParameters;
     this.context = null;
     factory = null;
@@ -84,7 +88,7 @@ public class PeerConnectionClient {
     enableAudio = true;
     localAudioTrack = null;
     this.viewRenderer = viewRenderer;
-    this._webSocketChannel = webSocketChannel;
+
 
     Log.d(TAG, "Capturing format: " + peerConnectionParameters.videoWidth +
             "x" + peerConnectionParameters.videoHeight + "@" + peerConnectionParameters.videoFps);
@@ -104,6 +108,11 @@ public class PeerConnectionClient {
             .setVideoDecoderFactory(new DefaultVideoDecoderFactory(renderEGLContext))
             .setVideoEncoderFactory(new DefaultVideoEncoderFactory(renderEGLContext, true, true))
             .createPeerConnectionFactory();
+
+    _webSocketChannel = WebSocketChannel.createWebSockeChannel(peerConnectionParameters.activity,
+            (JanusRTCInterface)peerConnectionParameters.activity,
+            peerConnectionParameters.janusWebSocketURL);
+
 
     Log.d(TAG, "Peer connection factory created.");
   }

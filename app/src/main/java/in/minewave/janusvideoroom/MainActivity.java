@@ -33,7 +33,6 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
     private SurfaceViewRenderer remoteRender;
     private VideoCapturer videoCapturer;
     private EglBase rootEglBase;
-    private WebSocketChannel mWebSocketChannel;
     LinearLayout rootView;
 
 
@@ -52,28 +51,30 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        rootView = findViewById(R.id.activity_main);
         try {
-            mWebSocketChannel = WebSocketChannel.createWebSockeChannel(this, getString(R.string.janus_websocket_uri));
-        } catch (Exception e) {
-            e.printStackTrace();
-            alertBox("Failed to connect. Will finish the application.\n" + e.getMessage());
+            setContentView(R.layout.activity_main);
+            rootView = findViewById(R.id.activity_main);
+            localRender = findViewById(R.id.local_video_view);
+            rootEglBase = EglBase.create();
+            localRender.init(rootEglBase.getEglBaseContext(), null);
+            localRender.setEnableHardwareScaler(true);
+
+            remoteRender = findViewById(R.id.remote_video_view);
+            remoteRender.init(rootEglBase.getEglBaseContext(), null);
+
+
+            PeerConnectionParameters peerConnectionParameters = new PeerConnectionParameters(
+                    getString(R.string.janus_websocket_uri), this, 360, 480, 30,
+                    "H264", 0, "opus", false);
+
+            peerConnectionClient = PeerConnectionClient.getInstance();
+            peerConnectionClient.createPeerConnectionFactory(this, rootEglBase.getEglBaseContext(),
+                    peerConnectionParameters, remoteRender);
         }
-        mWebSocketChannel.setDelegate(this);
-
-        localRender = findViewById(R.id.local_video_view);
-        rootEglBase = EglBase.create();
-        localRender.init(rootEglBase.getEglBaseContext(), null);
-        localRender.setEnableHardwareScaler(true);
-
-        remoteRender = findViewById(R.id.remote_video_view);
-        remoteRender.init(rootEglBase.getEglBaseContext(), null);
-        PeerConnectionParameters peerConnectionParameters  = new PeerConnectionParameters(360,
-                480, 30, "H264", 0, "opus", false);
-        peerConnectionClient = PeerConnectionClient.getInstance();
-        peerConnectionClient.createPeerConnectionFactory(this, rootEglBase.getEglBaseContext(),
-                peerConnectionParameters, remoteRender, mWebSocketChannel);
+        catch (Exception e) {
+            e.printStackTrace();
+            alertBox(e.getMessage());
+        }
     }
 
     @Override

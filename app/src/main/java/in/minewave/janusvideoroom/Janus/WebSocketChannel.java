@@ -37,15 +37,16 @@ public class WebSocketChannel extends WebSocketClient {
     private JanusRTCInterface delegate;
     private Activity _activity;
 
-    public static WebSocketChannel createWebSockeChannel(Activity activity, String url) throws URISyntaxException, InterruptedException, InvalidObjectException {
+    public static WebSocketChannel createWebSockeChannel(Activity activity, JanusRTCInterface delegate, String url) throws URISyntaxException, InterruptedException, InvalidObjectException {
         Draft_6455 janus_draft = new Draft_6455(Collections.<IExtension>emptyList(),
                 Collections.<IProtocol>singletonList(new Protocol("janus-protocol")));
-        return new WebSocketChannel(activity, url, janus_draft);
+        return new WebSocketChannel(activity, delegate, url, janus_draft);
     }
 
-    private WebSocketChannel(Activity activity, String url, Draft_6455 janus_draft) throws URISyntaxException, InterruptedException, InvalidObjectException  {
+    private WebSocketChannel(Activity activity, JanusRTCInterface delegate, String url, Draft_6455 janus_draft) throws URISyntaxException, InterruptedException, InvalidObjectException  {
         super(new URI(url), janus_draft);
         mHandler = new Handler();
+        this.delegate = delegate;
         _activity = activity;
         if (!connectBlocking(10, TimeUnit.SECONDS))
             throw new InvalidObjectException("Could not connect to janus");
@@ -359,10 +360,6 @@ public class WebSocketChannel extends WebSocketClient {
     public void onError(Exception ex) {
         Log.e(TAG, "onFailure " + ex.getMessage());
         ex.printStackTrace();
-    }
-
-    public void setDelegate(JanusRTCInterface delegate) {
-        this.delegate = delegate;
     }
 
     private String randomString(Integer length) {
