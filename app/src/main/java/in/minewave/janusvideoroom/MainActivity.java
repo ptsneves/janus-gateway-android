@@ -48,7 +48,8 @@ public class MainActivity extends AppCompatActivity {
 
             PeerConnectionParameters peerConnectionParameters = new PeerConnectionParameters(
                     getString(R.string.janus_websocket_uri), this, 360, 480, 30,
-                    "H264", 0, "opus", false);
+                    "H264", PeerConnectionParameters.VideoCapturerType.CAMERA_FRONT,
+                    0, "opus", false);
 
             peerConnectionClient = new PeerConnectionClient(this, rootEglBase.getEglBaseContext(),
                     peerConnectionParameters,  localRender, remoteRender);

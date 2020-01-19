@@ -5,6 +5,9 @@ import android.app.Activity;
 import java.security.InvalidParameterException;
 
 public class PeerConnectionParameters {
+  public enum VideoCapturerType {
+    CAMERA_FRONT
+  }
   public final int videoWidth;
   public final int videoHeight;
   public final int videoFps;
@@ -14,10 +17,11 @@ public class PeerConnectionParameters {
   public final String audioCodec;
   public final boolean noAudioProcessing;
   public final Activity activity;
+  public final VideoCapturerType capturerType;
 
   public PeerConnectionParameters(
           String janus_web_socket_uri, Activity activity,
-          int videoWidth, int videoHeight, int videoFps, String videoCodec,
+          int videoWidth, int videoHeight, int videoFps, String videoCodec, VideoCapturerType capturerType,
           int audioStartBitrate, String audioCodec,
           boolean noAudioProcessing) {
 
@@ -38,6 +42,7 @@ public class PeerConnectionParameters {
     this.audioStartBitrate = audioStartBitrate;
     this.audioCodec = audioCodec;
     this.noAudioProcessing = noAudioProcessing;
+    this.capturerType = capturerType;
 
   }
 }

@@ -291,7 +291,11 @@ public class PeerConnectionClient implements JanusRTCInterface {
   @Override
   public void onPublisherJoined(final BigInteger handleId) {
     try {
-      videoCapturer = createVideoCapturer();
+      switch (peerConnectionParameters.capturerType) {
+        case CAMERA_FRONT:
+          videoCapturer = createCamera2Capturer();
+          break;
+      }
     } catch (InvalidObjectException e) {
       Log.e(TAG, e.getMessage());
       e.printStackTrace();
@@ -320,7 +324,7 @@ public class PeerConnectionClient implements JanusRTCInterface {
   public void onLeaving(BigInteger handleId) {
 
   }
-  private VideoCapturer createVideoCapturer() throws InvalidObjectException {
+  private VideoCapturer createCamera2Capturer() throws InvalidObjectException {
 
     if (Camera2Enumerator.isSupported(context)) {
       CameraEnumerator enumerator = new Camera2Enumerator(context);
