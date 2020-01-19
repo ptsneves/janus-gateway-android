@@ -264,6 +264,16 @@ public class PeerConnectionClient implements JanusRTCInterface {
     videoSource = factory.createVideoSource(false);
     SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create("VideoCapturerThread", renderEGLContext);
 
+    try {
+      switch (peerConnectionParameters.capturerType) {
+        case CAMERA_FRONT:
+          videoCapturer = createCamera2Capturer();
+          break;
+      }
+    } catch (InvalidObjectException e) {
+      Log.e(TAG, e.getMessage());
+      e.printStackTrace();
+    }
     capturer.initialize(surfaceTextureHelper, context,  videoSource.getCapturerObserver());
     capturer.startCapture(peerConnectionParameters.videoWidth, peerConnectionParameters.videoHeight,
             peerConnectionParameters.videoFps);
@@ -278,17 +288,6 @@ public class PeerConnectionClient implements JanusRTCInterface {
   // interface JanusRTCInterface
   @Override
   public void onPublisherJoined(final BigInteger handleId) {
-    try {
-      switch (peerConnectionParameters.capturerType) {
-        case CAMERA_FRONT:
-          videoCapturer = createCamera2Capturer();
-          break;
-      }
-    } catch (InvalidObjectException e) {
-      Log.e(TAG, e.getMessage());
-      e.printStackTrace();
-    }
-
     createLocalPeerConnection(renderEGLContext, videoCapturer, handleId);
     JanusConnection connection = peerConnectionMap.get(handleId);
     PeerConnection peerConnection = connection.peerConnection;
