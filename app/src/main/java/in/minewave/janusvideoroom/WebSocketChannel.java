@@ -1,5 +1,6 @@
 package in.minewave.janusvideoroom;
 
+import android.app.Activity;
 import android.os.Handler;
 import android.text.TextUtils;
 import android.util.Log;
@@ -39,16 +40,18 @@ public class WebSocketChannel extends WebSocketClient {
     private Handler mHandler;
     private BigInteger mSessionId;
     private JanusRTCInterface delegate;
+    private Activity _activity;
 
-    public static WebSocketChannel createWebSockeChannel(String url) throws URISyntaxException, InterruptedException, InvalidObjectException {
+    public static WebSocketChannel createWebSockeChannel(Activity activity, String url) throws URISyntaxException, InterruptedException, InvalidObjectException {
         Draft_6455 janus_draft = new Draft_6455(Collections.<IExtension>emptyList(),
                 Collections.<IProtocol>singletonList(new Protocol("janus-protocol")));
-        return new WebSocketChannel(url, janus_draft);
+        return new WebSocketChannel(activity, url, janus_draft);
     }
 
-    private WebSocketChannel(String url, Draft_6455 janus_draft) throws URISyntaxException, InterruptedException, InvalidObjectException  {
+    private WebSocketChannel(Activity activity, String url, Draft_6455 janus_draft) throws URISyntaxException, InterruptedException, InvalidObjectException  {
         super(new URI(url), janus_draft);
         mHandler = new Handler();
+        _activity = activity;
         if (!connectBlocking(10, TimeUnit.SECONDS))
             throw new InvalidObjectException("Could not connect to janus");
     }
@@ -77,50 +80,53 @@ public class WebSocketChannel extends WebSocketClient {
 
     @Override
     public void onMessage(String message) {
-        Log.e(TAG, "onMessage" + message);
-        try {
-            JSONObject jo = new JSONObject(message);
-            String janus = jo.optString("janus");
-            if (JanusTransactions.isTransaction(jo)) {
-                janusTransactions.processTransaction(jo);
-            } else {
-                JanusHandle handle = handles.get(new BigInteger(jo.optString("sender")));
-                if (handle == null) {
-                    Log.e(TAG, "missing handle");
-                } else if (janus.equals("event")) {
-                    JSONObject plugin = jo.optJSONObject("plugindata").optJSONObject("data");
-                    if (plugin.optString("videoroom").equals("joined")) {
-                        handle.onJoined.onJoined(handle);
-                    }
-
-                    JSONArray publishers = plugin.optJSONArray("publishers");
-                    if (publishers != null && publishers.length() > 0) {
-                        for (int i = 0, size = publishers.length(); i <= size - 1; i++) {
-                            JSONObject publisher = publishers.optJSONObject(i);
-                            BigInteger feed = new BigInteger(publisher.optString("id"));
-                            String display = publisher.optString("display");
-                            subscriberCreateHandle(feed, display);
+        _activity.runOnUiThread(() -> {
+            Log.e(TAG, "onMessage" + message);
+            try {
+                JSONObject jo = new JSONObject(message);
+                String janus = jo.optString("janus");
+                if (JanusTransactions.isTransaction(jo)) {
+                    janusTransactions.processTransaction(jo);
+                } else {
+                    JanusHandle handle = handles.get(new BigInteger(jo.optString("sender")));
+                    if (handle == null) {
+                        Log.e(TAG, "missing handle");
+                    } else if (janus.equals("event")) {
+                        JSONObject plugin = jo.optJSONObject("plugindata").optJSONObject("data");
+                        if (plugin.optString("videoroom").equals("joined")) {
+                            handle.onJoined.onJoined(handle);
                         }
-                    }
 
-                    String leaving = plugin.optString("leaving");
-                    if (!TextUtils.isEmpty(leaving)) {
-                        JanusHandle jhandle = feeds.get(new BigInteger(leaving));
-                        jhandle.onLeaving.onJoined(jhandle);
-                    }
+                        JSONArray publishers = plugin.optJSONArray("publishers");
+                        if (publishers != null && publishers.length() > 0) {
+                            for (int i = 0, size = publishers.length(); i <= size - 1; i++) {
+                                JSONObject publisher = publishers.optJSONObject(i);
+                                BigInteger feed = new BigInteger(publisher.optString("id"));
+                                String display = publisher.optString("display");
+                                subscriberCreateHandle(feed, display);
+                            }
+                        }
 
-                    JSONObject jsep = jo.optJSONObject("jsep");
-                    if (jsep != null) {
-                       handle.onRemoteJsep.onRemoteJsep(handle, jsep);
-                    }
+                        String leaving = plugin.optString("leaving");
+                        if (!TextUtils.isEmpty(leaving)) {
+                            JanusHandle jhandle = feeds.get(new BigInteger(leaving));
+                            jhandle.onLeaving.onJoined(jhandle);
+                        }
 
-                } else if (janus.equals("detached")) {
-                    handle.onLeaving.onJoined(handle);
+                        JSONObject jsep = jo.optJSONObject("jsep");
+                        if (jsep != null) {
+                            handle.onRemoteJsep.onRemoteJsep(handle, jsep);
+                        }
+
+                    } else if (janus.equals("detached")) {
+                        handle.onLeaving.onJoined(handle);
+                    }
                 }
+            } catch (JSONException e) {
+                e.printStackTrace();
             }
-        } catch (JSONException e) {
-            e.printStackTrace();
         }
+    );
     }
 
     private void publisherCreateHandle() {

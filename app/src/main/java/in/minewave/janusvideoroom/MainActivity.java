@@ -57,7 +57,7 @@ public class MainActivity extends AppCompatActivity implements JanusRTCInterface
         setContentView(R.layout.activity_main);
         rootView = findViewById(R.id.activity_main);
         try {
-            mWebSocketChannel = WebSocketChannel.createWebSockeChannel(getString(R.string.janus_websocket_uri));
+            mWebSocketChannel = WebSocketChannel.createWebSockeChannel(this, getString(R.string.janus_websocket_uri));
         } catch (Exception e) {
             e.printStackTrace();
             alertBox("Failed to connect. Will finish the application.\n" + e.getMessage());
