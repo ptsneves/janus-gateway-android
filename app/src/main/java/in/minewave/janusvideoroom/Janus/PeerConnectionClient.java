@@ -1,6 +1,9 @@
 package in.minewave.janusvideoroom.Janus;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.media.projection.MediaProjection;
 import android.util.Log;
 
 import java.io.InvalidObjectException;
@@ -26,12 +29,16 @@ import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.DefaultVideoDecoderFactory;
+import org.webrtc.ScreenCapturerAndroid;
 import org.webrtc.SessionDescription;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.VideoCapturer;
 import org.webrtc.VideoSink;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
+
+import in.minewave.janusvideoroom.Janus.PeerConnectionParameters.PeerConnectionParameters;
+import in.minewave.janusvideoroom.Janus.PeerConnectionParameters.PeerConnectionScreenShareParameters;
 
 public class PeerConnectionClient implements JanusRTCInterface {
   public static final String VIDEO_TRACK_ID = "ARDAMSv0";
@@ -143,9 +150,13 @@ public class PeerConnectionClient implements JanusRTCInterface {
       switch (peerConnectionParameters.capturerType) {
         case CAMERA_FRONT:
           videoCapturer = createCamera2Capturer(videoSource.getCapturerObserver());
-          videoCapturerStopped = false;
           break;
+        case SCREEN_SHARE:
+          videoCapturer = createScreenCapturer(videoSource.getCapturerObserver(),
+                  ((PeerConnectionScreenShareParameters)peerConnectionParameters).permission_data,
+                  ((PeerConnectionScreenShareParameters)peerConnectionParameters).permission_result_code);
       }
+      videoCapturerStopped = false;
     } catch (InvalidObjectException e) {
       Log.e(TAG, e.getMessage());
       e.printStackTrace();
@@ -317,5 +328,22 @@ public class PeerConnectionClient implements JanusRTCInterface {
       }
     }
     throw new InvalidObjectException("Could not find front camera or camera2enumerator is not supported");
+  }
+
+
+  public VideoCapturer createScreenCapturer(CapturerObserver capturerObserver, Intent data, int code) throws InvalidObjectException {
+    if (code != Activity.RESULT_OK) {
+      throw new InvalidObjectException("No permissions for screen sharing");
+    }
+    ScreenCapturerAndroid cap = new ScreenCapturerAndroid(data, new MediaProjection.Callback() {
+      @Override
+      public void onStop() {
+        super.onStop();
+      }
+    });
+    SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create("VideoCapturerThread", renderEGLContext);
+    cap.initialize(surfaceTextureHelper, context, capturerObserver);
+    cap.startCapture(peerConnectionParameters.videoWidth, peerConnectionParameters.videoHeight, peerConnectionParameters.videoFps);
+    return cap;
   }
 }

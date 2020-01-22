@@ -1,4 +1,4 @@
-package in.minewave.janusvideoroom.Janus;
+package in.minewave.janusvideoroom.Janus.PeerConnectionParameters;
 
 import android.app.Activity;
 
@@ -6,7 +6,8 @@ import java.security.InvalidParameterException;
 
 public class PeerConnectionParameters {
   public enum VideoCapturerType {
-    CAMERA_FRONT
+    CAMERA_FRONT,
+    SCREEN_SHARE
   }
   public final int videoWidth;
   public final int videoHeight;
@@ -19,7 +20,8 @@ public class PeerConnectionParameters {
   public final Activity activity;
   public final VideoCapturerType capturerType;
 
-  public PeerConnectionParameters(
+
+  PeerConnectionParameters(
           String janus_web_socket_uri, Activity activity,
           int videoWidth, int videoHeight, int videoFps, String videoCodec, VideoCapturerType capturerType,
           int audioStartBitrate, String audioCodec,
@@ -43,6 +45,5 @@ public class PeerConnectionParameters {
     this.audioCodec = audioCodec;
     this.noAudioProcessing = noAudioProcessing;
     this.capturerType = capturerType;
-
   }
 }
