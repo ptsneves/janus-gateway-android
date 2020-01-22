@@ -79,20 +79,17 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        peerConnectionClient.onResume();
-    }
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode != CAPTURE_PERMISSION_REQUEST_CODE)
             return;
         init(data, resultCode);
         Log.e(TAG, "Was called");
-     }
+    }
+
+
 
     @Override
-    protected void onStop() {
-        super.onStop();
-        peerConnectionClient.close();
+    protected void onDestroy() {
+        super.onDestroy();
     }
 }

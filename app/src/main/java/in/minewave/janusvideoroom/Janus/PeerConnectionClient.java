@@ -113,16 +113,6 @@ public class PeerConnectionClient implements JanusRTCInterface {
     }
   }
 
-  public void onResume(){
-    if (videoCapturer != null && videoCapturerStopped) {
-      Log.d(TAG, "Restart video capturer.");
-      videoCapturer.startCapture(peerConnectionParameters.videoWidth,
-              peerConnectionParameters.videoHeight,
-              peerConnectionParameters.videoFps);
-      videoCapturerStopped = false;
-    }
-  }
-
   public PeerConnection createRemotePeerConnection(BigInteger handleId) {
     return createPeerConnection(handleId, JanusConnection.ConnectionType.REMOTE);
   }
