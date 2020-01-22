@@ -77,7 +77,8 @@ public class PeerConnectionObserver implements PeerConnection.Observer {
         if (stream.videoTracks.size() == 1) {
             VideoTrack videoTrack = stream.videoTracks.get(0);
             videoTrack.setEnabled(true);
-            videoTrack.addSink(_renderer);
+            if (_renderer != null)
+               videoTrack.addSink(_renderer);
         }
     }
 

@@ -264,7 +264,8 @@ public class PeerConnectionClient implements JanusRTCInterface {
   private VideoTrack createVideoTrack(VideoSource videoSource) {
     VideoTrack localVideoTrack = factory.createVideoTrack(VIDEO_TRACK_ID, videoSource);
     localVideoTrack.setEnabled(true);
-    localVideoTrack.addSink(localRender);
+    if (localRender != null)
+      localVideoTrack.addSink(localRender);
     return localVideoTrack;
   }
 
